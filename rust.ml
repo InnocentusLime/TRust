@@ -34,6 +34,7 @@ let () =
 	match mode with
 	| "test_renaming" -> contents |> Lexing.from_string |> lambda_term lex |> PreIrToIr.convert_term |> IrToPreIr.convert_term |> PreIr.string_of_term |> Printf.printf "%s\n"
 	| "simply_typed_tc" -> contents |> Lexing.from_string |> lambda_term lex |> PreIrToIr.convert_term |> Ir.simply_typed_typecheck |> print_result
+	| "reduction_step" -> contents |> Lexing.from_string |> lambda_term lex |> PreIrToIr.convert_term |> Ir.reduction_step |> IrToPreIr.convert_term |> PreIr.string_of_term |> Printf.printf "%s\n"
 	| "verify" -> contents |> Lexing.from_string |> lambda_term lex |> PreIrToIr.convert_term |> Typing.verify
 	| _ -> Printf.printf "I don't understand you\n"
 ;;

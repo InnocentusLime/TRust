@@ -118,9 +118,11 @@ and subst_type t v x =
 	| Nat -> Nat
 	| Bool -> Bool
 	| TVar v' -> (
-		match x with
-		| SubstData _ -> failwith "bad substitution (tried to put data instead of type)"
-		| SubstType x -> if v = v' then x else TVar v'
+		if v' = v then (
+			match x with
+			| SubstData _ -> failwith "bad substitution (tried to put data instead of type)"
+			| SubstType x -> x
+		) else TVar v'
 	)
 	| Refine (str, typ, prp) -> Refine (str, subst_type typ v x, subst_prop prp (v + 1) (lift_subst_data x))
 	| Map (str, l, r) -> Map (str, subst_type l v x, subst_type r (v + 1) (lift_subst_data x))
@@ -134,9 +136,11 @@ and subst_term t v x =
 	| NatO -> NatO
 	| NatSucc -> NatSucc
 	| Var v' -> (
-		match x with
-		| SubstData x -> if v' = v then x else Var v'
-		| SubstType _ -> failwith "bad substitution (tried to put a type instead of data)"
+		if v' = v then (
+			match x with
+			| SubstData x -> x 
+			| SubstType _ -> failwith "bad substitution (tried to put a type instead of data)"
+		) else Var v'
 	)
 	| Abs (str, typ, body) -> Abs (str, subst_type typ v x, subst_term body (v + 1) (lift_subst_data x))
 	| Generic (str, body) -> Generic (str, subst_term body (v + 1) (lift_subst_data x))

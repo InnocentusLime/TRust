@@ -23,6 +23,7 @@ and subtyping =
 ;;
 
 type prooving_command =
+| ApplyTt
 | ApplyEqRefl
 ;;
 
@@ -88,7 +89,13 @@ let read_term ctx =
 	read_line () |> Lexing.from_string |> LambdaAst.lambda_term LambdaLex.lex |> (fun x -> ReprConversion.PreIrToIr.convert_term_ctx x ctx')
 ;;
 
-let read_proof_mode_command ctx h = failwith "unimplemented";;                                                                                                                            
+let read_proof_mode_command ctx h = 
+	let input = read_line () in
+	match input with
+	| "tt" -> ApplyTt
+	| "eq_refl" -> ApplyEqRefl
+	| _ -> failwith "THE FUCK YOU SAID TO ME, YOU LITTLE SHIT"
+;;                                                                                                                            
 
 let rec consider_app_problem ctx li ri tm1 t1 tm2 t2 =
 	Printf.printf "Dummy implementation. Generating an answer, which may not work.\n";
@@ -118,9 +125,17 @@ and interactive_proving ctx h t =
 		let ctx' = ReprConversion.IrToPreIr.naming_context_from_ir_typing_context ctx in
 		ReprConversion.IrToPreIr.convert_prop_ctx t ctx' |> PreIr.string_of_prop |> Printf.printf "Goal: %s\n"
 	);
-	let cmd = read_proof_mode_command ctx h in
+	let cmd = (Printf.printf "Enter proof command\n>"; read_proof_mode_command ctx h) in
 	match (t, cmd) with
-	| (Eq _, ApplyEqRefl) -> failwith "I actually can't do that"
+	| (Top, ApplyTt) -> PTt
+	| (Eq (l_tm_target, r_tm_target, target_typ), ApplyEqRefl) -> (
+		if l_tm_target = r_tm_target then (
+			let i = interactive_typing ctx h l_tm_target in
+			match (typecheck_typing i ctx h) with
+			| Some (Base (ctx', h', tm, typ)) when ctx = ctx' && list_set_eq h h' && tm = l_tm_target && typ = target_typ -> PHintTyping (PEqRefl (tm, typ), i)
+			| _ -> failwith "failed to type the term"
+		) else failwith "Can't proof this equality with reflexivity, because left and right sides are not the same" 
+	)
 	| _ -> failwith "Unimplemented"
 ;;
 

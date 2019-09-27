@@ -30,7 +30,7 @@ let print_result t =
 
 let check_0_eq_0_proof x =
 	match x with
-	| Some (Typing.Proof (ctx, h, prp)) when ctx = Ir.create_empty_context () && h = [] && prp = Ir.Eq (Ir.NatO, Ir.NatO, Ir.Nat) -> Printf.printf "OH MY"
+	| Some ((ctx, h, prp)) when ctx = Ir.create_empty_context () && h = [] && prp = Ir.Eq (Ir.NatO, Ir.NatO, Ir.Nat) -> Printf.printf "OH MY"
 	| _ -> Printf.printf "INYA, FIX YOUR FAULTY CODE"
 ;;
  

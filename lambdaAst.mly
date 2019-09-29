@@ -76,6 +76,7 @@ prod_type:
 | atom_type_grammar PROD atom_type_grammar { [$1; $3] }
 | atom_type_grammar PROD prod_type { $1 :: $3 }
 term_grammar:
+| NIL { Nil }
 | ZERO { NatO }
 | SUCC { NatSucc }
 | FALSE { False }

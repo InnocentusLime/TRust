@@ -55,7 +55,7 @@ module IrToPreIr = struct
 		)
 		| Exists (x, typ, body) -> (
 			let x' = freshiny_name x ctx in
-			PreIr.Forall (x', convert_type_ctx typ ctx, ctx |> push_name x' |> convert_prop_ctx body)
+			PreIr.Exists (x', convert_type_ctx typ ctx, ctx |> push_name x' |> convert_prop_ctx body)
 		)
 		| Eq (l, r, typ) -> PreIr.Eq (convert_term_ctx l ctx, convert_term_ctx r ctx, convert_type_ctx typ ctx)
 		| Conjunction (l, r) -> PreIr.Conjunction (convert_prop_ctx l ctx, convert_prop_ctx r ctx)

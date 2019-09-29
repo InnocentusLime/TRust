@@ -1,4 +1,5 @@
 @echo off
+ocamlc -c common.ml
 ocamlc -c ir.ml
 ocamlc -c preIr.ml
 ocamlc -c reprConversion.ml
@@ -6,7 +7,7 @@ ocamlc -c lambdaAst.mli
 ocamlc -c lambdaLex.ml
 ocamlc -c lambdaAst.ml
 ocamlc -c typing.ml
-ocamlc ir.cmo preIr.cmo lambdaAst.cmo lambdaLex.cmo reprConversion.cmo typing.cmo rust.ml -o rust.exe
+ocamlc common.cmo ir.cmo preIr.cmo lambdaAst.cmo lambdaLex.cmo reprConversion.cmo typing.cmo rust.ml -o rust.exe
 del ir.cmo
 del ir.cmi
 del preIr.cmo

@@ -80,7 +80,8 @@ and string_of_term t =
 	| For (a, b, c, d) -> "for " ^ (string_of_term a) ^ " <" ^ (string_of_prop d) ^ "> do {" ^ (string_of_term b) ^ "} {" ^ (string_of_term c) ^ "}"
 ;;
 
-module Ctx = Map.Make(String);;
+(* TODO move this alias into something like `common.ml` *)
+module Ctx = Common.StringMap;;
 
 type index_context = { mem : int Ctx.t };;
 

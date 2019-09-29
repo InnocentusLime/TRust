@@ -9,6 +9,7 @@ type typing =
 | IVar of int
 | IAbs of string * type_ast * typing
 | IApp of typing * typing
+| INil
 | INatO
 | INatSucc
 | ISubtype of typing * subtyping
@@ -22,6 +23,10 @@ and proof =
 | POrRight of proof * prop_ast
 | PImplies of prop_ast * proof
 | PAssumption of prop_ast
+| PForall of string * type_ast * proof
+| PExists of string * type_ast * prop_ast * proof * typing
+| PExistsProofProj of proof
+| PForallElim of proof * typing
 and subtyping =
 | SRefl of type_ast
 | STrans of subtyping * subtyping
@@ -36,6 +41,10 @@ type prooving_command =
 | ApplyOrR
 | ApplyImplication
 | ApplyAssumption
+| ApplyExistsProof
+| ApplyForallProof
+| ApplyExistsExtraction
+| ApplyForallElimination
 ;;
 type subtyping_command =
 | ApplySubRefl
@@ -54,6 +63,7 @@ let list_set_eq l r = List.for_all (fun x -> List.mem x r) l && List.for_all (fu
 
 let rec typecheck_typing t ctx h =
 	match t with
+	| INil -> Some (ctx, h, Nil, Unit)
 	| INatO -> Some ((ctx, h, NatO, Nat))
 	| INatSucc -> Some ((ctx, h, NatSucc, Map ("_", Nat, Nat)))
 	| IAbs (v, arg_t, r) -> (
@@ -68,7 +78,7 @@ let rec typecheck_typing t ctx h =
 		match (typecheck_typing l ctx h, typecheck_typing r ctx h) with
 		| (Some ((ctx_a, h_a, l_term, Map (v, l_type_domain, l_type_res))), Some ((ctx_b, h_b, r_term, r_type))) 
 			when ctx = ctx_a && ctx = ctx_b && list_set_eq h h_a && list_set_eq h h_b && eq_types l_type_domain r_type && is_type_small r_type 
-				-> Some ((ctx, h, App (l_term, r_term), clean_after_unbind_type l_type_res))
+				-> Some ((ctx, h, App (l_term, r_term), top_subst_type l_type_res (SubstData r_term)))
 		| _ -> None	
 	)
 	| IVar v -> ( 
@@ -134,6 +144,34 @@ and typecheck_proof t ctx h =
 		if List.exists (fun x -> eq_props x target) h then Some (ctx, h, target)
 		else None
 	)
+	| PForall (v, typ, body) -> (
+		let ctx_a = push_var v (Data typ) ctx in
+		match (typecheck_proof body ctx_a h) with
+		| Some (ctx_b, h', prp) when ctx_b = ctx_a && list_set_eq h' h -> Some (ctx, h, Forall (v, typ, prp))
+		| _ -> None
+	)
+	| PExists (v, typ, prp, body, i) -> (
+		let ctx_a = push_var v (Data typ) ctx in
+		match (typecheck_proof body ctx_a h, typecheck_typing i ctx h) with
+		| (Some (ctx_b, h_a, prp'), Some (ctx', h_b, tm, typ)) 
+			when ctx' = ctx && ctx_b = ctx_a && list_set_eq h_a h && list_set_eq h_b h && prp' = top_subst_prop prp (SubstData tm)
+				-> Some (ctx, h, Exists (v, typ, prp))
+		| _ -> None
+	)
+	| PExistsProofProj p -> (
+		match (typecheck_proof p ctx h) with
+		| Some (ctx', h', Exists (_, typ, body))
+			when ctx' = ctx && list_set_eq h' h
+				-> failwith "not yet implemented"
+		| _ -> None
+	)
+	| PForallElim (p, i) -> (
+		match (typecheck_proof p ctx h, typecheck_typing i ctx h) with
+		| (Some (ctx_a, h_a, Forall (_, expected_typ, body)), Some (ctx_b, h_b, tm, infered_typ))
+			when ctx_a = ctx && ctx_b = ctx && list_set_eq h_a h && list_set_eq h_b h && eq_types expected_typ infered_typ
+				-> Some (ctx, h, top_subst_prop body (SubstData tm))  
+		| _ -> None
+	)
 and typecheck_subtyping t ctx h =
 	match t with
 	| SRefl typ -> Some ((ctx, h, typ, typ))
@@ -178,6 +216,8 @@ let read_proof_mode_command ctx h =
 	| "or_right" -> ApplyOrR
 	| "implication" -> ApplyImplication
 	| "assumption" -> ApplyAssumption
+	| "forall" -> ApplyForallProof
+	| "exists" -> ApplyExistsProof
 	| _ -> failwith "Unrecognized command"
 ;;
 let read_subtyping_mode_command ctx h =
@@ -229,6 +269,7 @@ and consider_app_problem ctx h li ri ltm lt rtm rt lbt_list =
 and interactive_typing ctx h t lbt_list =
 	match t with
 	| Var v ->  IVar v
+	| Nil -> INil
 	| NatO -> INatO
 	| NatSucc -> INatSucc
 	| App (l, r) -> (
@@ -298,6 +339,26 @@ and interactive_proving ctx h t lbt_list =
 				-> PImplies (l, p)
 		| _ -> failwith "bad conclusion proof"
 	)	
+	| (Exists (v, typ, prp), ApplyExistsProof) -> (
+		let term = (Printf.printf "Enter term\n>>"; read_term ctx) in
+		let i = interactive_typing ctx h term lbt_list in
+		let target = top_subst_prop prp (SubstData term) in
+		let p = interactive_proving ctx h target lbt_list in
+		match (typecheck_proof p ctx h, typecheck_typing i ctx h) with
+		| (Some (ctx_a, h_a, target'), Some (ctx_b, h_b, tm, typ'))
+			when ctx_a = ctx && ctx_b = ctx && list_set_eq h_a h && list_set_eq h_b h && eq_props target target' && eq_types typ typ'
+				-> PExists (v, typ, prp, p, i)
+		| _ -> failwith "failed to prove existensial statement"	
+	)
+	| (Forall (v, typ, prp), ApplyForallProof) -> (
+		let ctx' = push_var v (Data typ) ctx in
+		let p = interactive_proving ctx' h prp lbt_list in
+		match typecheck_proof p ctx' h with
+		| Some (ctx'', h', prp')
+			when ctx'' = ctx' && list_set_eq h' h && eq_props prp' prp
+				-> PForall (v, typ, p)
+		| _ -> failwith "bad body proof"
+	)
 	| _ -> failwith "Unimplemented"
 and interactive_subtyping ctx h (l, r) lbt_list =
 	(

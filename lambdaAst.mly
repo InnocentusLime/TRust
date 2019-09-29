@@ -42,8 +42,10 @@ open PreIr;;
 %left LPARAN LBRACE LSQ
 %left APP
 
-%start lambda_term
+%start lambda_term lambda_type lambda_prop
 %type <PreIr.term_ast> lambda_term
+%type <PreIr.type_ast> lambda_type
+%type <PreIr.prop_ast> lambda_prop
 %%
 
 prop_grammar:
@@ -102,3 +104,7 @@ term_list:
 | term_grammar COMMA term_list { $1 :: $3 }
 lambda_term:
 | term_grammar EOF { $1 }
+lambda_type:
+| type_grammar EOF { $1 }
+lambda_prop:
+| prop_grammar EOF { $1 }

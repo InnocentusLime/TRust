@@ -1,4 +1,4 @@
-(*
+(*                                                                                           
 	the data types which encode the typing
 	trees, subtyping trees and proof trees 
 	of the tool.
@@ -17,6 +17,11 @@ and proof =
 | PTt
 | PEqRefl of term_ast * type_ast * typing
 | PExtractProof of term_ast * type_ast * typing
+| PAnd of proof * proof
+| POrLeft of proof * prop_ast
+| POrRight of proof * prop_ast
+| PImplies of prop_ast * proof
+| PAssumption of prop_ast
 and subtyping =
 | SRefl of type_ast
 | STrans of subtyping * subtyping
@@ -26,6 +31,11 @@ and subtyping =
 type prooving_command =
 | ApplyTt
 | ApplyEqRefl
+| ApplyAnd
+| ApplyOrL
+| ApplyOrR
+| ApplyImplication
+| ApplyAssumption
 ;;
 type subtyping_command =
 | ApplySubRefl
@@ -95,6 +105,35 @@ and typecheck_proof t ctx h =
 				-> Some ((ctx, h, top_subst_prop prp (SubstData tm)))
 		| _ -> None
 	)
+	| PAnd (l, r) -> (
+		match (typecheck_proof l ctx h, typecheck_proof r ctx h) with
+		| (Some (ctx_a, h_a, lp), Some (ctx_b, h_b, rp)) 
+			when ctx_a = ctx && ctx_b = ctx && list_set_eq h_a h && list_set_eq h_b h
+				-> Some (ctx, h, Conjunction (lp, rp))
+		| _ -> None 
+	)
+	| POrLeft (p, right) -> (
+		let p = typecheck_proof p ctx h in
+		match p with
+		| Some (ctx', h', left) when ctx' = ctx && list_set_eq h' h -> Some (ctx, h, Disjunction (left, right))
+		| _ -> None
+	)
+	| POrRight (p, left) -> (
+		let p = typecheck_proof p ctx h in
+		match p with
+		| Some (ctx', h', right) when ctx' = ctx && list_set_eq h' h -> Some (ctx, h, Disjunction (left, right))
+		| _ -> None
+	)
+	| PImplies (hyp, conclusion) -> (
+		let p = typecheck_proof conclusion ctx (hyp :: h) in
+		match p with
+		| Some (ctx', h', prp) when ctx' = ctx && list_set_eq h' (hyp :: h) -> Some (ctx, h, Implication (hyp, prp))
+		| _ -> None
+	)
+	| PAssumption target -> (
+		if List.exists (fun x -> eq_props x target) h then Some (ctx, h, target)
+		else None
+	)
 and typecheck_subtyping t ctx h =
 	match t with
 	| SRefl typ -> Some ((ctx, h, typ, typ))
@@ -134,6 +173,11 @@ let read_proof_mode_command ctx h =
 	match input with
 	| "tt" -> ApplyTt
 	| "eq_refl" -> ApplyEqRefl
+	| "and" -> ApplyAnd
+	| "or_left" -> ApplyOrL
+	| "or_right" -> ApplyOrR
+	| "implication" -> ApplyImplication
+	| "assumption" -> ApplyAssumption
 	| _ -> failwith "Unrecognized command"
 ;;
 let read_subtyping_mode_command ctx h =
@@ -209,6 +253,10 @@ and interactive_proving ctx h t lbt_list =
 	);
 	let cmd = (Printf.printf "Enter proof command\n>"; read_proof_mode_command ctx h) in
 	match (t, cmd) with
+	| (_, ApplyAssumption) -> (
+		if List.exists (fun x -> eq_props x t) h then PAssumption t
+		else failwith "This is not an assumption"
+	)
 	| (Top, ApplyTt) -> PTt
 	| (Eq (l_tm_target, r_tm_target, target_typ), ApplyEqRefl) -> (
 		if eq_terms l_tm_target r_tm_target then (
@@ -218,13 +266,45 @@ and interactive_proving ctx h t lbt_list =
 			| _ -> failwith "failed to type the term"
 		) else failwith "Can't proof this equality with reflexivity, because left and right sides are not the same" 
 	)
+	| (Conjunction (l, r), ApplyAnd) -> (
+		let (lp, rp) = (interactive_proving ctx h l lbt_list, interactive_proving ctx h r lbt_list) in
+		match (typecheck_proof lp ctx h, typecheck_proof rp ctx h) with
+		| (Some (ctx_a, h_a, l'), Some (ctx_b, h_b, r')) 
+			when ctx_a = ctx && ctx_b = ctx && list_set_eq h_a h && list_set_eq h_b h && eq_props l' l && eq_props r' r 
+				-> PAnd (lp, rp) 
+		| _ -> failwith "bad left or right proof"
+	)
+	| (Disjunction (l, r), ApplyOrL) -> (
+		let lp = interactive_proving ctx h l lbt_list in
+		match typecheck_proof lp ctx h with
+		| Some (ctx', h', l') 
+			when ctx = ctx' && list_set_eq h h' && eq_props l l'
+				 -> POrLeft (lp, r) 
+		| _ -> failwith "bad left proof"
+	)
+	| (Disjunction (l, r), ApplyOrR) -> (
+		let rp = interactive_proving ctx h l lbt_list in
+		match typecheck_proof rp ctx h with
+		| Some (ctx', h', r') 
+			when ctx = ctx' && list_set_eq h h' && eq_props r r'
+				 -> POrRight (rp, l) 
+		| _ -> failwith "bad right proof"
+	)
+	| (Implication (l, r), ApplyImplication) -> (
+		let p = interactive_proving ctx (l :: h) r lbt_list in
+		match typecheck_proof p ctx (l :: h) with
+		| Some (ctx', h', r')
+			when ctx = ctx' && list_set_eq (l :: h) h' && eq_props r r' 
+				-> PImplies (l, p)
+		| _ -> failwith "bad conclusion proof"
+	)	
 	| _ -> failwith "Unimplemented"
 and interactive_subtyping ctx h (l, r) lbt_list =
 	(
 		let ctx' = ReprConversion.IrToPreIr.naming_context_from_ir_typing_context ctx in
 		Printf.printf "Goal: %s <: %s\n" (l |> (fun x -> ReprConversion.IrToPreIr.convert_type_ctx x ctx') |> PreIr.string_of_type) (r |> (fun x -> ReprConversion.IrToPreIr.convert_type_ctx x ctx') |> PreIr.string_of_type)
 	);
-	let cmd = read_subtyping_mode_command ctx h in
+	let cmd = (Printf.printf "Enter subtyping command\n>"; read_subtyping_mode_command ctx h) in
 	match ((l, r), cmd) with
 	| (_, ApplySubRefl) -> if eq_types l r then SRefl l else failwith "Can't proof this subtyping with reflexivity, because left and right sides are not the same"
 	| (_, ApplySubTrans t) -> (

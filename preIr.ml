@@ -46,10 +46,10 @@ let rec string_of_prop t =
 	| Forall (v, typ, body) -> "forall " ^ v ^ ":" ^ (string_of_type typ) ^ "." ^ (string_of_prop body)
 	| ForallGen (v, body) -> "forall " ^ v ^ "." ^ (string_of_prop body)
 	| Exists (v, typ, body) -> "exists " ^ v ^ ":" ^ (string_of_type typ) ^ "." ^ (string_of_prop body)
-	| Eq (l, r, typ) -> (string_of_term l) ^ " == " ^ (string_of_term r) ^ " :> " ^ (string_of_type typ)
-	| Conjunction (l, r) -> "(" ^ (string_of_prop l) ^ "/\\" ^ (string_of_prop r) ^ ")" 
-	| Disjunction (l, r) -> "(" ^ (string_of_prop l) ^ "\\/" ^ (string_of_prop r) ^ ")" 
-	| Implication (l, r) -> "(" ^ (string_of_prop l) ^ "=>" ^ (string_of_prop r) ^ ")" 
+	| Eq (l, r, typ) -> "(" ^ (string_of_term l) ^ " == " ^ (string_of_term r) ^ " :> " ^ (string_of_type typ) ^ ")"
+	| Conjunction (l, r) -> "(" ^ (string_of_prop l) ^ " /\\ " ^ (string_of_prop r) ^ ")" 
+	| Disjunction (l, r) -> "(" ^ (string_of_prop l) ^ " \\/ " ^ (string_of_prop r) ^ ")" 
+	| Implication (l, r) -> "(" ^ (string_of_prop l) ^ " => " ^ (string_of_prop r) ^ ")" 
 and string_of_type t =
 	match t with
 	| Unit -> "unit"

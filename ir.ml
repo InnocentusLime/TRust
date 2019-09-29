@@ -25,7 +25,7 @@ and type_ast =
 | Nat
 | Bool
 | TVar of int
-| Refine of string * type_ast * prop_ast
+| Refine of string * type_ast * prop_ast (* the type in the `refine` can't depende on introduced var *)
 | Map of string * type_ast * type_ast
 | Prod of type_ast list
 | Gen of string * type_ast
@@ -44,6 +44,60 @@ and term_ast =
 | Proj of term_ast * int
 | Ite of term_ast * term_ast * term_ast * prop_ast
 | For of term_ast * term_ast * term_ast * prop_ast  
+;;
+
+let rec eq_props l r =
+    match (l, r) with
+	| (Top, Top) -> true
+	| (Bot, Bot) -> true
+	| (Forall (_, lt, lp), Forall (_, rt, rp)) -> eq_types lt rt && eq_props lp rp
+	| (ForallGen (_, lp), ForallGen (_, rp)) -> eq_props lp rp
+	| (Exists (_, lt, lp), Exists (_, rt, rp)) -> eq_types lt rt && eq_props lp rp
+	| (Eq (lx, ly, lt), Eq (rx, ry, rt)) -> eq_terms lx rx && eq_terms ly ry && eq_types lt rt
+	| (Conjunction (lx, ly), Conjunction (rx, ry)) -> eq_props lx rx && eq_props ly ry
+	| (Disjunction (lx, ly), Disjunction (rx, ry)) -> eq_props lx rx && eq_props ly ry
+	| (Implication (lx, ly), Implication (rx, ry)) -> eq_props lx rx && eq_props ly ry	
+	| _ -> false
+and eq_types l r =
+	let rec eq_prods l r =
+		match (l, r) with
+		| ([], []) -> true
+		| (lh :: lt, rh :: rt) -> eq_types lh rh && eq_prods lt rt
+		| _ -> false
+	in
+	match (l, r) with
+	| (Unit, Unit) -> true
+	| (Nat, Nat) -> true
+	| (Bool, Bool) -> true
+	| (TVar x, TVar y) -> x = y
+	| (Refine (_, tx, px), Refine (_, ty, py)) -> eq_types tx ty && eq_props px py
+	| (Map (_, lx, rx), Map (_, ly, ry)) -> eq_types lx ly && eq_types rx ry
+	| (Prod l, Prod r) -> eq_prods l r
+	| (Gen (_, l), Gen (_, r)) -> eq_types l r
+	| _ -> false
+and eq_terms l r =
+	let rec eq_tuples l r =
+		match (l, r) with
+		| ([], []) -> true
+		| (lh :: lt, rh :: rt) -> eq_terms lh rh && eq_tuples lt rt 
+		| _ -> false
+	in
+	match (l, r) with
+	| (True, True) -> true
+	| (False, False) -> true
+	| (Nil, Nil) -> true
+	| (NatO, NatO) -> true
+	| (NatSucc, NatSucc) -> true
+	| (Var x, Var y) -> x = y
+	| (Abs (_, lt, lbody), Abs (_, rt, rbody)) -> eq_types lt rt && eq_terms lbody rbody
+	| (Generic (_, lbody), Generic (_, rbody)) -> eq_terms lbody rbody
+	| (App (lx, ly), App (rx, ry)) -> eq_terms lx rx && eq_terms ly ry
+	| (TApp (lx, ly), TApp (rx, ry)) -> eq_terms lx rx && eq_types ly ry
+	| (Tuple l, Tuple r) -> eq_tuples l r
+	| (Proj (lx, li), Proj (rx, ri)) -> eq_terms lx rx && li = ri
+	| (Ite (la, lb, lc, ld), Ite (ra, rb, rc, rd)) -> eq_terms la ra && eq_terms lb rb && eq_terms lc rc && eq_props ld rd
+	| (For (la, lb, lc, ld), For (ra, rb, rc, rd)) -> eq_terms la ra && eq_terms lb rb && eq_terms lc rc && eq_props ld rd
+	| _ -> false
 ;;
 
 (*t |^d_c*)
@@ -99,6 +153,7 @@ let lift_subst_data t =
 
 let clean_after_unbind_term t = lift_term t 0 (-1);;
 let clean_after_unbind_type t = lift_type t 0 (-1);;
+let clean_after_unbind_prop p = lift_prop p 0 (-1);;
 
 (*t[v:=x]*)
 let rec subst_prop t v x =
@@ -152,6 +207,10 @@ and subst_term t v x =
 	| For (head, step, terminator, prp) -> For (subst_term head v x, subst_term step v x, subst_term terminator v x, subst_prop prp v x) 
 ;;
 
+let top_subst_prop target subst_value = clean_after_unbind_prop (subst_prop target 0 (lift_subst_data subst_value));;
+let top_subst_type target subst_value = clean_after_unbind_type (subst_type target 0 (lift_subst_data subst_value));;
+let top_subst_term target subst_value = clean_after_unbind_term (subst_term target 0 (lift_subst_data subst_value));;
+
 let rec reduction_step t =
 	let rec tuple_reduction l =
 		match l with
@@ -169,13 +228,13 @@ let rec reduction_step t =
 	| Var v -> Var v
 	| Abs (v, typ, body) -> Abs (v, typ, body)
 	| Generic (v, body) -> Generic (v, body)
-	| App (Abs (_, t, body), r) -> clean_after_unbind_term (subst_term body 0 (lift_subst_data (SubstData r)))
+	| App (Abs (_, t, body), r) -> top_subst_term body (SubstData r)
 	| App (l, r) -> (
 		let l' = reduction_step l in
 		if l = l' then App (l, reduction_step r)
 		else App (l', r)
 	)
-	| TApp (Generic (_, body), r) -> clean_after_unbind_term (subst_term body 0 (lift_subst_data (SubstType r)))
+	| TApp (Generic (_, body), r) -> top_subst_term body (SubstType r)
 	| TApp (l, r) -> TApp (reduction_step l, r)	
 	| Tuple l -> Tuple (tuple_reduction l)
 	| Proj (Tuple l, id) -> List.nth l id
@@ -278,12 +337,12 @@ let rec simply_typed_typecheck' term ctx =
 	| Generic (v, body) -> ctx |> push_var v Type |> simply_typed_typecheck' body >>= fun t -> Some (Gen (v, t))
 	| App (l, r) -> ctx |> simply_typed_typecheck' l >>= fun lt -> ctx |> simply_typed_typecheck' r >>= (fun rt ->
 		match lt with
-		| Map (_, x, y) when x = rt && is_type_small rt -> Some (clean_after_unbind_type (subst_type y 0 (lift_subst_data (SubstData r))))
+		| Map (_, x, y) when eq_types x rt && is_type_small rt -> Some (top_subst_type y (SubstData r))
 		| _ -> None
 	) 
 	| TApp (gen, typ) -> ctx |> simply_typed_typecheck' gen >>= (fun t ->
 		match t with
-		| Gen (_, t_bod) when is_type_small typ -> Some (clean_after_unbind_type (subst_type t_bod 0 (lift_subst_data (SubstType typ))))
+		| Gen (_, t_bod) when is_type_small typ -> Some (top_subst_type t_bod (SubstType typ))
 		| _ -> None
 	)
 	| Tuple l -> List.fold_right (fun x acc -> cons_opt x acc) (List.map (fun x -> simply_typed_typecheck' x ctx) l) (Some []) >>= (fun x -> Some (Prod x))
@@ -294,12 +353,12 @@ let rec simply_typed_typecheck' term ctx =
 	) 
 	| Ite (cond, on_true, on_false, _) -> (
 		match (simply_typed_typecheck' cond ctx, simply_typed_typecheck' on_true ctx, simply_typed_typecheck' on_false ctx) with
-		| (Some t_cond, Some t_ontrue, Some t_onfalse) -> if are_types_from_same_family t_cond Bool && are_types_from_same_family t_ontrue t_onfalse then Some t_ontrue else None
+		| (Some t_cond, Some t_ontrue, Some t_onfalse) -> if eq_types t_cond Bool && eq_types t_ontrue t_onfalse then Some t_ontrue else None
 		| _ -> None
 	)
 	| For (head, step, terminate, _) -> (
 		match (simply_typed_typecheck' head ctx, simply_typed_typecheck' step ctx, simply_typed_typecheck' terminate ctx) with
-		| (Some t_head, Some t_step, Some t_terminate) -> if are_types_from_same_family t_head Nat && are_types_from_same_family t_step (Map ("_", t_terminate, t_terminate)) then Some t_terminate else None
+		| (Some t_head, Some t_step, Some t_terminate) -> if eq_types t_head Nat && eq_types t_step (Map ("_", t_terminate, t_terminate)) then Some t_terminate else None
 		| _ -> None
 	)
 ;;

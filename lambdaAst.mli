@@ -47,3 +47,7 @@ type token =
 
 val lambda_term :
   (Lexing.lexbuf  -> token) -> Lexing.lexbuf -> PreIr.term_ast
+val lambda_type :
+  (Lexing.lexbuf  -> token) -> Lexing.lexbuf -> PreIr.type_ast
+val lambda_prop :
+  (Lexing.lexbuf  -> token) -> Lexing.lexbuf -> PreIr.prop_ast

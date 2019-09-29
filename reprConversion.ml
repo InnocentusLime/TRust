@@ -105,6 +105,7 @@ module IrToPreIr = struct
 	;;
 	let convert_type t = convert_type_ctx t (create_empty_naming_context ());;
 	let convert_term t = convert_term_ctx t (create_empty_naming_context ());;
+	let convert_prop t = convert_prop_ctx t (create_empty_naming_context ());;
 end
 module PreIrToIr = struct	
 	open PreIr;;

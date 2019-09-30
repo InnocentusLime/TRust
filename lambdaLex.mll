@@ -30,7 +30,7 @@ let letter = lower_letter | upper_letter
 let number = ['0' - '9']
 let alpha_num  = letter | number
 let space = ['\t' ' ']
-let newline = '\n'
+let newline = ['\r' '\n']
 
 let ident = (letter (alpha_num*)) | ('_' (alpha_num+))
 

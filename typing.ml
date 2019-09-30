@@ -27,6 +27,9 @@ and proof =
 | PExists of string * type_ast * prop_ast * proof * typing
 | PExistsProofProj of proof
 | PForallElim of proof * typing
+| PImpliesElim of proof * proof
+| PAndElim of proof * proof
+| POrElim of proof * proof * proof
 and subtyping =
 | SRefl of type_ast
 | STrans of subtyping * subtyping
@@ -45,6 +48,9 @@ type prooving_command =
 | ApplyForallProof
 | ApplyExistsExtraction
 | ApplyForallElimination
+| ApplyAndElim of prop_ast * prop_ast
+| ApplyImplicationElim of prop_ast
+| ApplyOrElim of prop_ast * prop_ast
 ;;
 type subtyping_command =
 | ApplySubRefl
@@ -172,6 +178,31 @@ and typecheck_proof t ctx h =
 				-> Some (ctx, h, top_subst_prop body (SubstData tm))  
 		| _ -> None
 	)
+	| PImpliesElim (l, r) -> (
+		match (typecheck_proof l ctx h, typecheck_proof r ctx h) with
+		| (Some (ctx_a, h_a, Implication (x, y)), Some (ctx_b, h_b, z))
+			when ctx_a = ctx && ctx_b = ctx && list_set_eq h_a h && list_set_eq h_b h && eq_props z x 
+				-> Some (ctx, h, y)
+		| _ -> None
+	)
+	| PAndElim (x, y) -> (
+		match (typecheck_proof x ctx h, typecheck_proof y ctx h) with
+		| (Some (ctx_a, h_a, Conjunction (l, r)), Some (ctx_b, h_b, Implication (l', Implication (r', z))))
+			when ctx_a = ctx && ctx_b = ctx && list_set_eq h_a h && list_set_eq h_b h && eq_props l' l && eq_props r' r
+				-> Some (ctx, h, z)                                                                                                                                 
+		| _ -> None
+	)
+	| POrElim (l, r, z) -> (
+		match typecheck_proof z ctx h with
+		| Some (ctx', h', Disjunction (l', r')) when ctx' = ctx && list_set_eq h' h -> (
+			match (typecheck_proof l ctx h, typecheck_proof r ctx h) with
+			| (Some (ctx_a, h_a, Implication (l'', x)), Some (ctx_b, h_b, Implication (r'', y)))
+				when ctx_a = ctx && ctx_b = ctx && list_set_eq h_a h && list_set_eq h_b h && eq_props x y && eq_props l' l'' && eq_props r' r''
+					-> Some (ctx, h, x)
+			| _ -> None
+		)
+		| _ -> None
+	)
 and typecheck_subtyping t ctx h =
 	match t with
 	| SRefl typ -> Some ((ctx, h, typ, typ))
@@ -218,6 +249,20 @@ let read_proof_mode_command ctx h =
 	| "assumption" -> ApplyAssumption
 	| "forall" -> ApplyForallProof
 	| "exists" -> ApplyExistsProof
+	| "elim_implication" -> (
+		let () = Printf.printf "Enter the right side of implication to eliminate\n>>" in
+		ApplyImplicationElim (read_prop ctx)
+	)
+	| "elim_and" -> (
+		let l = (Printf.printf "Enter the left side of `and`\n>>"; read_prop ctx)
+		and r = (Printf.printf "Enter the right side of `and`\n>>"; read_prop ctx) in
+		ApplyAndElim (l, r)
+	)
+	| "elim_or" -> (
+		let l = (Printf.printf "Enter the left side of `or`\n>>"; read_prop ctx)
+		and r = (Printf.printf "Enter the right side of `or`\n>>"; read_prop ctx) in
+		ApplyOrElim (l, r)
+	)
 	| _ -> failwith "Unrecognized command"
 ;;
 let read_subtyping_mode_command ctx h =
@@ -359,6 +404,25 @@ and interactive_proving ctx h t lbt_list =
 				-> PForall (v, typ, p)
 		| _ -> failwith "bad body proof"
 	)
+	| (_, ApplyAndElim (l, r)) -> (
+		let p = interactive_proving ctx h (Conjunction (l, r)) lbt_list 
+        and p' = interactive_proving ctx h (Implication (l, Implication (r, t))) lbt_list in
+		match (typecheck_proof p ctx h, typecheck_proof p' ctx h) with
+		| (Some (ctx_a, h_a, Conjunction (l_a, r_a)), Some (ctx_b, h_b, Implication (l_b, Implication (r_b, t'))))
+			when ctx_a = ctx && ctx_b = ctx && list_set_eq h_a h && list_set_eq h_b h && eq_props l_a l && eq_props r_a r && eq_props l_b l && eq_props r_b r && eq_props t' t
+				-> PAndElim (p, p')
+		| _ -> failwith "bad and proof"
+	)
+	| (_, ApplyOrElim (l, r)) -> (
+		let p = interactive_proving ctx h (Disjunction (l, r)) lbt_list 
+        and lp = interactive_proving ctx h (Implication (l, t)) lbt_list
+        and rp = interactive_proving ctx h (Implication (r, t)) lbt_list in
+		match (typecheck_proof p ctx h, typecheck_proof lp ctx h, typecheck_proof rp ctx h) with
+		| (Some (ctx_a, h_a, Conjunction (l_a, r_a)), Some (ctx_b, h_b, Implication (l_b, t_b)), Some (ctx_c, h_c, Implication (r_c, t_c)))
+			when ctx_a = ctx && ctx_b = ctx && ctx_c = ctx && list_set_eq h_a h && list_set_eq h_b h && list_set_eq h_c h && eq_props l_a l && eq_props r_a r && eq_props l_b l && eq_props r_c r && eq_props t_b t && eq_props t_c t
+				-> POrElim (lp, rp, p)
+		| _ -> failwith "bad and proof"
+	)  
 	| _ -> failwith "Unimplemented"
 and interactive_subtyping ctx h (l, r) lbt_list =
 	(

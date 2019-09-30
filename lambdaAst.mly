@@ -30,6 +30,7 @@ open PreIr;;
 %token PROD
 %token LANGLE RANGLE
 
+%left QUANTIFY
 %left FAT_ARROW PROP_IMPLIES
 %left PROP_OR
 %left PROP_AND
@@ -56,9 +57,9 @@ prop_grammar:
 | prop_grammar PROP_OR prop_grammar { Disjunction ($1, $3) }
 | prop_grammar FAT_ARROW prop_grammar %prec PROP_IMPLIES { Implication ($1, $3) }
 | term_grammar EQ term_grammar TYPE_HINT type_grammar { Eq ($1, $3, $5) }
-| FORALL VAR COLLON type_grammar DOT prop_grammar %prec PROP_IMPLIES { Forall ($2, $4, $6) }
-| EXISTS VAR COLLON type_grammar DOT prop_grammar %prec PROP_IMPLIES { Exists ($2, $4, $6) }
-| FORALL VAR DOT prop_grammar %prec PROP_IMPLIES { ForallGen ($2, $4) }
+| FORALL VAR COLLON type_grammar DOT prop_grammar %prec QUANTIFY { Forall ($2, $4, $6) }
+| EXISTS VAR COLLON type_grammar DOT prop_grammar %prec QUANTIFY { Exists ($2, $4, $6) }
+| FORALL VAR DOT prop_grammar %prec QUANTIFY { ForallGen ($2, $4) }
 atom_type_grammar:
 | BOOL { Bool }
 | UNIT { Unit }

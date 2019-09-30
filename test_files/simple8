@@ -1,0 +1,1 @@
+((/x:{x:nat | x == (succ O) :> nat}.O) ((/x:nat.(/y:{y:nat | x == y :> nat}.x)) (succ O) (succ O)))

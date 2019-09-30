@@ -22,3 +22,5 @@ del reprConversion.cmo
 del reprConversion.cmi      
 del typing.cmo
 del typing.cmi
+del common.cmo
+del common.cmi

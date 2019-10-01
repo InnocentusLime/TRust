@@ -30,6 +30,12 @@ and proof =
 | PImpliesElim of proof * proof
 | PAndElim of proof * proof
 | POrElim of proof * proof * proof
+| PEqSymm of proof
+| PEqTrans of proof * proof
+| PEqRedL of proof
+| PEqRedR of proof
+| PEqRedRevL of proof * term_ast
+| PEqRedRevR of proof * term_ast
 and subtyping =
 | SRefl of type_ast
 | STrans of subtyping * subtyping
@@ -51,6 +57,12 @@ type prooving_command =
 | ApplyAndElim of prop_ast * prop_ast
 | ApplyImplicationElim of prop_ast
 | ApplyOrElim of prop_ast * prop_ast
+| ApplyEqRedRevL
+| ApplyEqRedRevR
+| ApplyEqRedL of term_ast
+| ApplyEqRedR of term_ast
+| ApplyEqSymm
+| ApplyEqTrans of term_ast
 ;;
 type subtyping_command =
 | ApplySubRefl
@@ -203,6 +215,46 @@ and typecheck_proof t ctx h =
 		)
 		| _ -> None
 	)
+	| PEqSymm x -> (
+		match typecheck_proof x ctx h with
+		| Some (ctx', h', Eq (l, r, typ)) when ctx' = ctx && list_set_eq h' h -> Some (ctx, h, Eq (r, l, typ))
+		| _ -> None
+	)
+	| PEqTrans (x, y) -> (
+		match (typecheck_proof x ctx h, typecheck_proof y ctx h) with
+		| (Some (ctx_a, h_a, Eq (l, t_a, typ_a)), Some (ctx_b, h_b, Eq (t_b, r, typ_b))) 
+			when ctx_a = ctx && ctx_b = ctx && list_set_eq h_a h && list_set_eq h_b h && eq_terms t_a t_b && eq_types typ_a typ_b 
+				-> Some (ctx, h, Eq (l, r, typ_a))
+		| _ -> None
+	)
+	| PEqRedL x -> (
+		match typecheck_proof x ctx h with
+		| Some (ctx', h', Eq (l, r, typ)) 
+			when ctx' = ctx && list_set_eq h' h 
+				-> Some (ctx, h, Eq (reduction_step l, r, typ))	 
+		| _ -> None
+	)
+	| PEqRedR x -> (
+		match typecheck_proof x ctx h with
+		| Some (ctx', h', Eq (l, r, typ)) 
+			when ctx' = ctx && list_set_eq h' h 
+				-> Some (ctx, h, Eq (l, reduction_step r, typ))	 
+		| _ -> None
+	)
+	| PEqRedRevL (x, t) -> (
+		match typecheck_proof x ctx h with
+		| Some (ctx', h', Eq (l, r, typ)) 
+			when ctx' = ctx && list_set_eq h' h && reduction_step t = l
+				-> Some (ctx, h, Eq (t, r, typ))	 
+		| _ -> None
+	)
+	| PEqRedRevR (x, t) -> (
+		match typecheck_proof x ctx h with
+		| Some (ctx', h', Eq (l, r, typ)) 
+			when ctx' = ctx && list_set_eq h' h && reduction_step t = r
+				-> Some (ctx, h, Eq (l, t, typ))	 
+		| _ -> None
+	)
 and typecheck_subtyping t ctx h =
 	match t with
 	| SRefl typ -> Some ((ctx, h, typ, typ))
@@ -262,6 +314,21 @@ let read_proof_mode_command ctx h =
 		let l = (Printf.printf "Enter the left side of `or`\n>>"; read_prop ctx)
 		and r = (Printf.printf "Enter the right side of `or`\n>>"; read_prop ctx) in
 		ApplyOrElim (l, r)
+	)
+	| "red_rev_l" -> ApplyEqRedRevL
+	| "red_rev_r" -> ApplyEqRedRevR
+	| "red_l" -> (
+		let x = (Printf.printf "Enter the term\n>>"; read_term ctx) in
+		ApplyEqRedL x
+	) 
+	| "red_r" -> (
+		let x = (Printf.printf "Enter the term\n>>"; read_term ctx) in
+		ApplyEqRedR x
+	)
+	| "eq_symm" -> ApplyEqSymm
+	| "eq_trans" -> (
+		let x = (Printf.printf "Enter the term\n>>"; read_term ctx) in
+		ApplyEqTrans x
 	)
 	| _ -> failwith "Unrecognized command"
 ;;
@@ -422,7 +489,58 @@ and interactive_proving ctx h t lbt_list =
 			when ctx_a = ctx && ctx_b = ctx && ctx_c = ctx && list_set_eq h_a h && list_set_eq h_b h && list_set_eq h_c h && eq_props l_a l && eq_props r_a r && eq_props l_b l && eq_props r_c r && eq_props t_b t && eq_props t_c t
 				-> POrElim (lp, rp, p)
 		| _ -> failwith "bad and proof"
-	)  
+	)
+	| (Eq (l, r, typ), ApplyEqRedL x) -> (
+		let p = interactive_proving ctx h (Eq (x, r, typ)) lbt_list in
+		match typecheck_proof p ctx h with
+		| Some (ctx', h', Eq (x', r', typ'))
+			when ctx' = ctx && list_set_eq h' h && eq_terms x' x && eq_terms r' r && eq_types typ' typ
+				-> PEqRedL p 
+		| _ -> failwith "bad eq proof" 
+	)
+	| (Eq (l, r, typ), ApplyEqRedR x) -> (
+		let p = interactive_proving ctx h (Eq (l, x, typ)) lbt_list in
+		match typecheck_proof p ctx h with
+		| Some (ctx', h', Eq (l', x', typ'))
+			when ctx' = ctx && list_set_eq h' h && eq_terms x' x && eq_terms l' l && eq_types typ' typ
+				-> PEqRedL p 
+		| _ -> failwith "bad eq proof" 
+	)
+	| (Eq (l, r, typ), ApplyEqRedRevL) -> (
+		let l_red = reduction_step l in
+		let p = interactive_proving ctx h (Eq (l_red, r, typ)) lbt_list in
+		match typecheck_proof p ctx h with
+		| Some (ctx', h', Eq (l_red', r', typ'))
+			when ctx' = ctx && list_set_eq h' h && eq_terms l_red' l_red && eq_terms r' r && eq_types typ' typ
+				-> PEqRedRevL (p, l)
+		| _ -> failwith "bad eq proof"
+	)
+	| (Eq (l, r, typ), ApplyEqRedRevR) -> (
+		let r_red = reduction_step r in
+		let p = interactive_proving ctx h (Eq (l, r_red, typ)) lbt_list in
+		match typecheck_proof p ctx h with
+		| Some (ctx', h', Eq (l', r_red', typ'))
+			when ctx' = ctx && list_set_eq h' h && eq_terms r_red' r_red && eq_terms l' l && eq_types typ' typ
+				-> PEqRedRevR (p, r)
+		| _ -> failwith "bad eq proof"
+	)
+	| (Eq (l, r, typ), ApplyEqSymm) -> (
+		let p = interactive_proving ctx h (Eq (r, l, typ)) lbt_list in
+		match typecheck_proof p ctx h with
+		| Some (ctx', h', Eq (r', l', typ'))
+			when ctx' = ctx && list_set_eq h' h && eq_terms r' r && eq_terms l' l && eq_types typ' typ
+				-> PEqSymm p
+		| _ -> failwith "bad eq proof"
+	)
+	| (Eq (l, r, typ), ApplyEqTrans x) -> (
+		let lp = interactive_proving ctx h (Eq (l, x, typ)) lbt_list
+		and rp = interactive_proving ctx h (Eq (x, r, typ)) lbt_list in
+		match (typecheck_proof lp ctx h, typecheck_proof rp ctx h) with
+		| (Some (ctx_a, h_a, Eq (l_a, x_a, typ_a)), Some (ctx_b, h_b, Eq (x_b, r_b, typ_b))) 
+			when ctx_a = ctx && ctx_b = ctx && list_set_eq h_a h && list_set_eq h_b h && eq_terms l_a l && eq_terms x_a x && eq_terms r_b r && eq_terms x_b x && eq_types typ_a typ && eq_types typ_b typ 
+				-> PEqTrans (lp, rp)
+		| _ -> failwith "bad eq proof"
+	)
 	| _ -> failwith "Unimplemented"
 and interactive_subtyping ctx h (l, r) lbt_list =
 	(

@@ -1,0 +1,6 @@
+(
+	(
+		/x:{x:unit | ((/x:bool.O) true) == O :> nat}.x
+	) 
+	nil
+)

@@ -1,0 +1,1 @@
+((/x:{x : unit | forall x:nat.forall y:nat.x == O :> nat /\ y == O :> nat => x == y :> nat}.x) nil)

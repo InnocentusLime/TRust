@@ -26,7 +26,6 @@ open PreIr;;
 %token GENERIC_TYPE ARROW_TYPE REFINED_TYPE
 %token BAR
 %token LSQ RSQ
-%token APP
 %token PROD
 %token LANGLE RANGLE
 
@@ -41,7 +40,6 @@ open PreIr;;
 %nonassoc EQ
 %left COMMA
 %left LPARAN LBRACE LSQ
-%left APP
 
 %start lambda_term lambda_type lambda_prop
 %type <PreIr.term_ast> lambda_term
@@ -84,21 +82,25 @@ term_grammar:
 | TRUE { True }
 | VAR { Var $1 }
 | LPARAN app_term_grammar RPARAN { $2 }
-| LPARAN SLASH VAR COLLON type_grammar DOT app_term_grammar RPARAN { Abs ($3, $5, $7) }
-| LPARAN SLASH VAR COLLON type_grammar DOT term_grammar RPARAN { Abs ($3, $5, $7) }
-| LPARAN SLASH SLASH VAR DOT app_term_grammar RPARAN { Generic ($4, $6) }
-| LPARAN SLASH SLASH VAR DOT term_grammar RPARAN { Generic ($4, $6) }
+| LPARAN abs_term_grammar RPARAN { $2 }
 | term_grammar DOT INT { Proj ($1, $3) }
 | LSQ term_list RSQ { Tuple $2 }
 | IF term_grammar LANGLE prop_grammar RANGLE THEN LBRACE term_grammar RBRACE ELSE LBRACE term_grammar RBRACE { Ite ($2, $8, $12, $4) }
 | FOR term_grammar LANGLE prop_grammar RANGLE DO LBRACE term_grammar RBRACE LBRACE term_grammar RBRACE { For ($2, $8, $11, $4) }
 | IF term_grammar THEN LBRACE term_grammar RBRACE ELSE LBRACE term_grammar RBRACE { Ite ($2, $5, $9, Top) }
 | FOR term_grammar DO LBRACE term_grammar RBRACE LBRACE term_grammar RBRACE { For ($2, $5, $8, Top) }
+abs_term_grammar:
+| SLASH VAR COLLON type_grammar DOT app_term_grammar { Abs ($2, $4, $6) }
+| SLASH VAR COLLON type_grammar DOT term_grammar { Abs ($2, $4, $6) }
+| SLASH SLASH VAR DOT app_term_grammar { Generic ($3, $5) }
+| SLASH SLASH VAR DOT term_grammar { Generic ($3, $5) }
+| SLASH VAR COLLON type_grammar DOT abs_term_grammar { Abs ($2, $4, $6) }
+| SLASH SLASH VAR DOT abs_term_grammar { Generic ($3, $5) }
 app_term_grammar:
-| term_grammar term_grammar %prec APP { App ($1, $2) }
-| app_term_grammar term_grammar %prec APP { App ($1, $2) }
-| app_term_grammar LPARAN type_grammar RPARAN %prec APP { TApp ($1, $3) }
-| term_grammar LPARAN type_grammar RPARAN %prec APP { TApp ($1, $3) }
+| term_grammar term_grammar { App ($1, $2) }
+| app_term_grammar term_grammar { App ($1, $2) }
+| app_term_grammar LPARAN type_grammar RPARAN { TApp ($1, $3) }
+| term_grammar LPARAN type_grammar RPARAN { TApp ($1, $3) }
 term_list:
 | app_term_grammar { [$1] }
 | term_grammar { [$1] }

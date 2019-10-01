@@ -40,7 +40,6 @@ type token =
   | BAR
   | LSQ
   | RSQ
-  | APP
   | PROD
   | LANGLE
   | RANGLE

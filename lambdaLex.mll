@@ -19,6 +19,7 @@
 			Hashtbl.add temp "exists" EXISTS;
 			Hashtbl.add temp "TRUE" TOP;
 			Hashtbl.add temp "FALSE" BOT; 
+			Hashtbl.add temp "lemma" LEMMA;
 			temp
 		)
 	);;
@@ -36,10 +37,11 @@ let ident = (letter (alpha_num*)) | ('_' (alpha_num+))
 
 rule lex =
 parse
+| "_" { WILDCARD }
 | "*" { PROD }
 | "<" { LANGLE }
-| ">" { RANGLE }
 | ":>" { TYPE_HINT }
+| ">" { RANGLE }
 | "O" { ZERO }
 | "(" { LPARAN }
 | ")" { RPARAN }

@@ -1,4 +1,6 @@
 type token =
+  | LEMMA
+  | WILDCARD
   | EOF
   | COMMA
   | INT of (int)

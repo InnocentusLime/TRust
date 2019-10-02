@@ -32,15 +32,15 @@ open PreIr;;
 %token LANGLE RANGLE
 
 %left QUANTIFY
-%left FAT_ARROW PROP_IMPLIES
+%right FAT_ARROW PROP_IMPLIES
 %left PROP_OR
 %left PROP_AND
 %left GENERIC_TYPE
-%left ARROW_TYPE ARROW
-%left DEP_TYPE
+%right ARROW_TYPE ARROW
+%right DEP_TYPE
 %left PROD
 %nonassoc EQ
-%left COMMA
+%right COMMA
 %left LPARAN LBRACE LSQ
 
 %start lambda_term lambda_type lambda_prop

@@ -36,6 +36,8 @@ and proof =
 | PEqRedR of proof
 | PEqRedRevL of proof * term_ast
 | PEqRedRevR of proof * term_ast
+| PExFalso of proof * prop_ast
+| PRewriteOcc of proof * int * proof * prop_ast
 and subtyping =
 | SRefl of type_ast
 | STrans of subtyping * subtyping
@@ -63,6 +65,8 @@ type prooving_command =
 | ApplyEqRedR of term_ast
 | ApplyEqSymm
 | ApplyEqTrans of term_ast
+| ApplyExFalso
+| ApplyRewriteOcc of term_ast * int * term_ast * type_ast 
 ;;
 type subtyping_command =
 | ApplySubRefl
@@ -255,6 +259,20 @@ and typecheck_proof t ctx h =
 				-> Some (ctx, h, Eq (l, t, typ))	 
 		| _ -> None
 	)
+	| PExFalso (x, p) -> (
+		match typecheck_proof x ctx h with
+		| Some (ctx', h', Bot)
+			when ctx' = ctx && list_set_eq h' h 
+				-> Some (ctx, h, p)
+		| _ -> None
+	)
+	| PRewriteOcc (where, occ_id, eq_proof, prp) -> (
+		match (typecheck_proof where ctx h, typecheck_proof eq_proof ctx h) with
+		| (Some (ctx_a, h_a, p), Some (ctx_b, h_b, Eq (l, r, _)))
+			when ctx_a = ctx && ctx_b = ctx && list_set_eq h_a h && list_set_eq h_b h && occ_id < count_subterms_prop l prp && eq_props (swap_occurance_prop occ_id l r prp) p
+				-> Some (ctx, h, prp)
+		| _ -> None
+	)
 and typecheck_subtyping t ctx h =
 	match t with
 	| SRefl typ -> Some ((ctx, h, typ, typ))
@@ -329,6 +347,14 @@ let read_proof_mode_command ctx h =
 	| "eq_trans" -> (
 		let x = (Printf.printf "Enter the term\n>>"; read_term ctx) in
 		ApplyEqTrans x
+	)
+	| "exfalso" -> ApplyExFalso
+	| "rewrite" -> (
+		let l = (Printf.printf "Enter the rewritten term\n>>"; read_term ctx)
+		and r = (Printf.printf "Enter the term to rewrite with\n>>"; read_term ctx)
+		and i = (Printf.printf "Enter the occurance number\n>>"; read_int ())
+		and t = (Printf.printf "Enter the type both sides are supposed to have\n>>"; read_type ctx) in
+		ApplyRewriteOcc (l, i, r, t)
 	)
 	| _ -> failwith "Unrecognized command"
 ;;
@@ -485,10 +511,10 @@ and interactive_proving ctx h t lbt_list =
         and lp = interactive_proving ctx h (Implication (l, t)) lbt_list
         and rp = interactive_proving ctx h (Implication (r, t)) lbt_list in
 		match (typecheck_proof p ctx h, typecheck_proof lp ctx h, typecheck_proof rp ctx h) with
-		| (Some (ctx_a, h_a, Conjunction (l_a, r_a)), Some (ctx_b, h_b, Implication (l_b, t_b)), Some (ctx_c, h_c, Implication (r_c, t_c)))
+		| (Some (ctx_a, h_a, Disjunction (l_a, r_a)), Some (ctx_b, h_b, Implication (l_b, t_b)), Some (ctx_c, h_c, Implication (r_c, t_c)))
 			when ctx_a = ctx && ctx_b = ctx && ctx_c = ctx && list_set_eq h_a h && list_set_eq h_b h && list_set_eq h_c h && eq_props l_a l && eq_props r_a r && eq_props l_b l && eq_props r_c r && eq_props t_b t && eq_props t_c t
 				-> POrElim (lp, rp, p)
-		| _ -> failwith "bad and proof"
+		| _ -> failwith "bad or proof"
 	)
 	| (Eq (l, r, typ), ApplyEqRedL x) -> (
 		let p = interactive_proving ctx h (Eq (x, r, typ)) lbt_list in
@@ -540,6 +566,22 @@ and interactive_proving ctx h t lbt_list =
 			when ctx_a = ctx && ctx_b = ctx && list_set_eq h_a h && list_set_eq h_b h && eq_terms l_a l && eq_terms x_a x && eq_terms r_b r && eq_terms x_b x && eq_types typ_a typ && eq_types typ_b typ 
 				-> PEqTrans (lp, rp)
 		| _ -> failwith "bad eq proof"
+	)
+	| (_, ApplyExFalso) -> (
+		let p = interactive_proving ctx h Bot lbt_list in
+		match typecheck_proof p ctx h with
+		| Some (ctx', h', Bot) -> PExFalso (p, t)
+		| _ -> failwith "bad proof of falsity"
+	)
+	| (_, ApplyRewriteOcc (rewritten, i, subst, typ)) -> (
+		let p_eq = interactive_proving ctx h (Eq (rewritten, subst, typ)) lbt_list
+		and target = swap_occurance_prop i rewritten subst t in
+		let p = interactive_proving ctx h target lbt_list in
+		match (typecheck_proof p ctx h, typecheck_proof p_eq ctx h) with
+		| (Some (ctx_a, h_a, target'), Some (ctx_b, h_b, Eq (rewritten', subst', typ')))
+			when ctx_a = ctx && ctx_b = ctx && list_set_eq h_a h && list_set_eq h_b h && eq_props target' target && eq_terms rewritten' rewritten && eq_terms subst' subst && eq_types typ' typ
+				-> PRewriteOcc (p, i, p_eq, t)
+		| _ -> failwith "failed to rewrite"
 	)
 	| _ -> failwith "Unimplemented"
 and interactive_subtyping ctx h (l, r) lbt_list =

@@ -389,3 +389,53 @@ let simply_typed_typecheck t = (
 	| Some t -> Some t
 	| None -> None
 );;                                    
+
+(*counts amount of times `n` occurs in `m`*)
+let rec count_subterms_term n m =
+	if eq_terms m n then 1
+	else (
+		match m with
+		| App (l, r) -> (count_subterms_term n l) + (count_subterms_term n r)
+		| TApp (x, _) -> count_subterms_term n x
+		| Tuple l -> l |> List.map (count_subterms_term n) |> List.fold_left (+) 0
+		| Proj (x, _) -> count_subterms_term n x
+		| Ite (a, b, c, _) -> (count_subterms_term n a) + (count_subterms_term n b) + (count_subterms_term n c)
+		| For (a, b, c, _) -> (count_subterms_term n a) + (count_subterms_term n b) + (count_subterms_term n c)
+		| _ -> 0
+	)
+and count_subterms_prop n p =
+	match p with
+	| Eq (l, r, _) -> (count_subterms_term n l) + (count_subterms_term n r)
+	| Conjunction (l, r) -> (count_subterms_prop n l) + (count_subterms_prop n r)
+	| Disjunction (l, r) -> (count_subterms_prop n l) + (count_subterms_prop n r)
+	| Implication (l, r) -> (count_subterms_prop n l) + (count_subterms_prop n r)
+	| _ -> 0
+;;
+
+(* replaces `n`th' occurance of `x` with `x'` in `y` *)
+let rec swap_occurance_term' n x x' y =
+	if eq_terms x y then (
+		if n = 0 then (x', -1)
+		else if n > 0 then (y, n - 1)
+		else (y, n)
+	) else (
+		match y with
+		| App (l, r) -> swap_occurance_term' n x x' l |> fun (l', n) -> swap_occurance_term' n x x' r |> fun (r', n) -> (App (l', r'), n)
+		| TApp (l, r) -> swap_occurance_term' n x x' l |> fun (l', n) -> (TApp (l', r), n)
+		| Proj (l, i) -> swap_occurance_term' n x x' l |> fun (l', n) -> (Proj (l', i), n)
+		| Ite (a, b, c, d) -> swap_occurance_term' n x x' a |> fun (a', n) -> swap_occurance_term' n x x' b |> fun (b', n) -> swap_occurance_term' n x x' c |> fun (c', n) -> (Ite (a', b', c', d), n)  
+		| For (a, b, c, d) -> swap_occurance_term' n x x' a |> fun (a', n) -> swap_occurance_term' n x x' b |> fun (b', n) -> swap_occurance_term' n x x' c |> fun (c', n) -> (For (a', b', c', d), n)
+		| _ -> (y, n)  
+	)
+and swap_occurance_prop' n x x' y =
+	match y with
+	| Eq (l, r, t) -> swap_occurance_term' n x x' l |> fun (l', n) -> swap_occurance_term' n x x' r |> fun (r', n) -> (Eq (l', r', t), n)
+	| Conjunction (l, r) -> swap_occurance_prop' n x x' l |> fun (l', n) -> swap_occurance_prop' n x x' r |> fun (r', n) -> (Conjunction (l', r'), n)
+	| Disjunction (l, r) -> swap_occurance_prop' n x x' l |> fun (l', n) -> swap_occurance_prop' n x x' r |> fun (r', n) -> (Disjunction (l', r'), n)
+	| Implication (l, r) -> swap_occurance_prop' n x x' l |> fun (l', n) -> swap_occurance_prop' n x x' r |> fun (r', n) -> (Implication (l', r'), n)
+	| _ -> (y, n)
+;;
+
+let swap_occurance_term n x x' y = swap_occurance_term' n x x' y |> fst;;
+let swap_occurance_prop n x x' p = swap_occurance_prop' n x x' p |> fst;;
+        

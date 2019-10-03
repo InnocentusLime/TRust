@@ -27,7 +27,7 @@ and proof =
 | PExists of string * type_ast * prop_ast * proof * typing
 | PExistsProofProj of proof
 | PForallElim of proof * typing
-| PImpliesElim of proof * proof
+| PImplicationElim of proof * proof * proof
 | PAndElim of proof * proof
 | POrElim of proof * proof * proof
 | PEqSymm of proof
@@ -57,7 +57,7 @@ type prooving_command =
 | ApplyExistsExtraction
 | ApplyForallElimination
 | ApplyAndElim of prop_ast * prop_ast
-| ApplyImplicationElim of prop_ast
+| ApplyImplicationElim of prop_ast * prop_ast
 | ApplyOrElim of prop_ast * prop_ast
 | ApplyEqRedRevL
 | ApplyEqRedRevR
@@ -66,7 +66,7 @@ type prooving_command =
 | ApplyEqSymm
 | ApplyEqTrans of term_ast
 | ApplyExFalso
-| ApplyRewriteOcc of term_ast * int * term_ast * type_ast 
+| ApplyRewriteOcc of term_ast * int * term_ast * type_ast
 ;;
 type subtyping_command =
 | ApplySubRefl
@@ -194,11 +194,15 @@ and typecheck_proof t ctx h =
 				-> Some (ctx, h, top_subst_prop body (SubstData tm))  
 		| _ -> None
 	)
-	| PImpliesElim (l, r) -> (
-		match (typecheck_proof l ctx h, typecheck_proof r ctx h) with
-		| (Some (ctx_a, h_a, Implication (x, y)), Some (ctx_b, h_b, z))
-			when ctx_a = ctx && ctx_b = ctx && list_set_eq h_a h && list_set_eq h_b h && eq_props z x 
-				-> Some (ctx, h, y)
+	| PImplicationElim (assum_proof, impl_proof, connect_proof) -> (
+		match typecheck_proof connect_proof ctx h with
+		| Some (ctx', h', Implication (l, Implication (r, t))) when ctx' = ctx && list_set_eq h' h -> (
+			match (typecheck_proof assum_proof ctx h, typecheck_proof impl_proof ctx h) with
+			| (Some (ctx_a, h_a, l_a), Some (ctx_b, h_b, Implication (l_b, r_b)))
+				when ctx_a = ctx && ctx_b = ctx && list_set_eq h_a h && list_set_eq h_b h && eq_props l_a l && eq_props l_b l && eq_props r_b r
+					-> Some (ctx, h, t)
+			| _ -> None
+		)
 		| _ -> None
 	)
 	| PAndElim (x, y) -> (
@@ -320,8 +324,9 @@ let read_proof_mode_command ctx h =
 	| "forall" -> ApplyForallProof
 	| "exists" -> ApplyExistsProof
 	| "elim_implication" -> (
-		let () = Printf.printf "Enter the right side of implication to eliminate\n>>" in
-		ApplyImplicationElim (read_prop ctx)
+		let l = (Printf.printf "Enter the left side of `implies`\n>>"; read_prop ctx)
+		and r = (Printf.printf "Enter the right side of `implies`\n>>"; read_prop ctx) in
+		ApplyImplicationElim (l, r)
 	)
 	| "elim_and" -> (
 		let l = (Printf.printf "Enter the left side of `and`\n>>"; read_prop ctx)
@@ -496,6 +501,16 @@ and interactive_proving ctx h t lbt_list =
 			when ctx'' = ctx' && list_set_eq h' h && eq_props prp' prp
 				-> PForall (v, typ, p)
 		| _ -> failwith "bad body proof"
+	)
+	| (_, ApplyImplicationElim (l, r)) -> (
+		let p = interactive_proving ctx h (Implication (l, r)) lbt_list
+		and hyp = interactive_proving ctx h l lbt_list
+		and p' = interactive_proving ctx h (Implication (l, Implication (r, t))) lbt_list in
+		match (typecheck_proof p ctx h, typecheck_proof hyp ctx h, typecheck_proof p' ctx h) with
+		| (Some (ctx_a, h_a, Implication (l_a, r_a)), Some (ctx_b, h_b, l_b), Some (ctx_c, h_c, Implication (l_c, Implication (r_c, t_c))))
+			when ctx_a = ctx && ctx_b = ctx && ctx_c = ctx && list_set_eq h_a h && list_set_eq h_b h && list_set_eq h_c h && eq_props l_a l && eq_props r_a r && eq_props l_b l && eq_props l_c l && eq_props r_c r && eq_props t_c t
+				-> PImplicationElim (hyp, p, p')
+		| _ -> failwith "bad implication proof"
 	)
 	| (_, ApplyAndElim (l, r)) -> (
 		let p = interactive_proving ctx h (Conjunction (l, r)) lbt_list 

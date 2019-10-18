@@ -1,3 +1,31 @@
+(*
+	VARIABLE NAMING HANDLING
+	==============================================================
+	Imagine us encountering the following problem:
+		when we are trying to give the names back to the variables
+		we notice that two variabled have the same name in the
+		context `ctx`
+	This problem doesn't look so concerning unless we encounter,
+	for example, the following term:
+		i j
+	where `i` and `j` are different De-Brujin indices, but in
+	the same time `ctx` associates two same names with them. If
+	`TRust` encounters that problem, he would calculate the fresh 
+	name for conflicted variable (`j` in that case), traverse back 
+	to the binder of that variable change the string and try to
+	name all the variables again 
+
+	VARIABLE UNNAMING HANDLING
+	==============================================================
+	We need to unname the term, but encountered the following
+	problem:
+		When unnaming the variable we notice that two indices are
+		associated with one name
+	In this case `TRust` favours choosing the first matching
+	variable in the context. Basically, `TRust` uses variable
+	shadowing.
+*)
+
 let freshiny_name_impl x f =          
 	let build_name_suffix n = if n = 0 then "" else string_of_int n in
 	let rec freshiny_name_impl' x f n =
@@ -5,9 +33,9 @@ let freshiny_name_impl x f =
 		if f s then freshiny_name_impl' x f (n + 1)
 		else s
 	in
-	freshiny_name_impl' x f 0
-;;		
+	freshiny_name_impl' x f 0		
 
+(*
 module CtxUtil = struct
 	open Ir;;
 	let freshiny_context ctx = 
@@ -18,150 +46,280 @@ module CtxUtil = struct
 	let name_context ctx = ctx |> freshiny_context |> extract_naming_from_typing_context;;
 
 	let string_of_context ctx = ctx |> name_context |> Array.to_list |> String.concat ", ";;
-end                                                                                                      
+end
+*)                                                                                                      
 
 module IrToPreIr = struct
-	open Ir;;
-	type naming_context = {
-		name_mem : string array;
-	};;
+	open Ir
+	open Common
+	open Aliases
 
-    let naming_context_from_ir_typing_context ctx =
-		{ name_mem = CtxUtil.name_context ctx }
-	;;
+	type usage_table = bool str_hashtbl
 
-	let create_empty_naming_context () = { name_mem = Array.make 0 ""; };;
+	type naming_context = { typing_ctx : context; usage : usage_table }
 
-	(* fetch_name : context -> int -> string *)
-	let fetch_name ctx v = Array.get ctx.name_mem v;; 
+	let name_of { typing_ctx; _ } v = !(Array.get typing_ctx.mem v |> snd)
 
-	let freshiny_name x ctx =
-		let name_mem_mem ctx v = Array.fold_left (fun acc x -> acc || x = v) false ctx.name_mem in
-		freshiny_name_impl x (name_mem_mem ctx)
-	;;
-	let push_name t ctx = { name_mem = Array.init (Array.length ctx.name_mem + 1) (fun x -> if x = 0 then t else Array.get ctx.name_mem (x - 1)) };;
+	let pick_fresh_name ctx v = freshiny_name_impl (name_of ctx v) (fun attempt -> ArrayExt.exists (fun (_, name) -> !name = attempt) ctx.typing_ctx.mem)
 
-	let rec convert_prop_ctx t ctx =
+	let is_name_used used x = if Hashtbl.mem used x then Hashtbl.find used x else false
+
+	let conflicts ctx v = ArrayExt.existsi (fun i (_, name) -> i <> v && !name = name_of ctx v && is_name_used ctx.usage !name) ctx.typing_ctx.mem
+
+	let rewrite_name ctx v str = ((Array.get ctx.typing_ctx.mem v |> snd) := str)
+
+	let push ctx v t = { typing_ctx = push_var v t ctx.typing_ctx; usage = ctx.usage }
+
+	let unnaming_context_from_typing_context ctx = { typing_ctx = ctx; usage = Hashtbl.create 0 } 
+
+	(*
+		DESCRIPTION
+		==================================================
+		Algorithm responsible for `Ir -> PreIr`
+
+		HOW DOES IT WORK?
+		==================================================
+		This algorithm tries to rename variables as
+		sparingly as possible. Shortly speaking, it 
+		works the following way:
+			* when the algorithm encounters an abstraction
+			it adds the variable to the context of names
+			* if it encounters a variable then:
+				- if the variable conflicts with the
+				current situation, the algorithm picks
+				a fresh name and renames it.
+				- if it is doesn't, the algorithm proceeds
+		
+		SIDE EFFECTS
+		==========================================================
+		the supplied context may get overwritten to contain no
+		conflicts
+	*)
+	let rec convert_term_ctx t ctx =
 		match t with
-		| Top -> PreIr.Top
-		| Bot -> PreIr.Bot
-		| Forall (x, typ, body) -> (
-			let x' = freshiny_name x ctx in
-			PreIr.Forall (x', convert_type_ctx typ ctx, ctx |> push_name x' |> convert_prop_ctx body)
-		)
-		| ForallGen (x, body) -> (
-			let x' = freshiny_name x ctx in
-			PreIr.ForallGen (x', ctx |> push_name x' |> convert_prop_ctx body)
-		)
-		| Exists (x, typ, body) -> (
-			let x' = freshiny_name x ctx in
-			PreIr.Exists (x', convert_type_ctx typ ctx, ctx |> push_name x' |> convert_prop_ctx body)
-		)
-		| Eq (l, r, typ) -> PreIr.Eq (convert_term_ctx l ctx, convert_term_ctx r ctx, convert_type_ctx typ ctx)
-		| Conjunction (l, r) -> PreIr.Conjunction (convert_prop_ctx l ctx, convert_prop_ctx r ctx)
-		| Disjunction (l, r) -> PreIr.Disjunction (convert_prop_ctx l ctx, convert_prop_ctx r ctx)
-		| Implication (l, r) -> PreIr.Implication (convert_prop_ctx l ctx, convert_prop_ctx r ctx)
-	and convert_type_ctx t ctx =
-		match t with
-		| Unit -> PreIr.Unit
-		| Nat -> PreIr.Nat
-		| Bool -> PreIr.Bool
-		| TVar v -> PreIr.TVar (fetch_name ctx v)
-		| Refine (v, typ, prp) -> (
-			let v' = freshiny_name v ctx in
-			PreIr.Refine (v', convert_type_ctx typ ctx, ctx |> push_name v' |> convert_prop_ctx prp)
-		)
-		| Map (v, l, r) -> (
-			let v' = freshiny_name v ctx in
-			PreIr.Map (v', convert_type_ctx l ctx, ctx |> push_name v' |> convert_type_ctx r)
-		)
-		| Prod l -> PreIr.Prod (List.map (fun x -> convert_type_ctx x ctx) l)
-		| Gen (v, body) -> (
-			let v' = freshiny_name v ctx in
-			PreIr.Gen (v', ctx |> push_name v' |> convert_type_ctx body)
-		)
-	and convert_term_ctx t ctx =
-		match t with
-		| True -> PreIr.True
-		| False -> PreIr.False
+		| BoolTrue -> PreIr.BoolTrue
+		| BoolFalse -> PreIr.BoolFalse
 		| Nil -> PreIr.Nil
 		| NatO -> PreIr.NatO
 		| NatSucc -> PreIr.NatSucc
-		| Var v -> PreIr.Var (fetch_name ctx v)
-		| Abs (v, arg_typ, body) -> (
-			let v' = freshiny_name v ctx in
-			PreIr.Abs (v', convert_type_ctx arg_typ ctx, ctx |> push_name v' |> convert_term_ctx body)
+		| Var v -> (
+			if conflicts ctx v then rewrite_name ctx v (pick_fresh_name ctx v); 
+			Hashtbl.add ctx.usage (name_of ctx v) true; 
+			PreIr.Var (name_of ctx v)
 		)
-		| Generic (v, body) -> (
-			let v' = freshiny_name v ctx in
-			PreIr.Generic (v', ctx |> push_name v' |> convert_term_ctx body)
-		)
-		| App (l, r) -> PreIr.App (convert_term_ctx l ctx, convert_term_ctx r ctx)
-		| TApp (l, r) -> PreIr.TApp (convert_term_ctx l ctx, convert_type_ctx r ctx)
-		| Tuple l -> PreIr.Tuple (List.map (fun x -> convert_term_ctx x ctx) l)
-		| Proj (l, i) -> PreIr.Proj (convert_term_ctx l ctx, i)
-		| Ite (a, b, c, d) -> PreIr.Ite (convert_term_ctx a ctx, convert_term_ctx b ctx, convert_term_ctx c ctx, convert_prop_ctx d ctx)
-		| For (a, b, c, d) -> PreIr.For (convert_term_ctx b ctx, convert_term_ctx b ctx, convert_term_ctx c ctx, convert_prop_ctx d ctx)
-	;;
-	let convert_type t = convert_type_ctx t (create_empty_naming_context ());;
-	let convert_term t = convert_term_ctx t (create_empty_naming_context ());;
-	let convert_prop t = convert_prop_ctx t (create_empty_naming_context ());;
+		| Bool -> PreIr.Bool
+		| Nat -> PreIr.Nat
+		| Unit -> PreIr.Unit
+		| Forall (v, arg_typ, body) -> 
+			let arg_typ' = convert_term_ctx arg_typ ctx in
+			let body' = convert_term_ctx body (push ctx v arg_typ) in
+			(Hashtbl.remove ctx.usage !v; PreIr.Forall (!v, arg_typ', body'))
+		| Refine (x, y) -> PreIr.Refine (convert_term_ctx x ctx, convert_term_ctx y ctx)
+		| Abs (v, arg_typ, body) ->
+			let arg_typ' = convert_term_ctx arg_typ ctx in
+			let body' = convert_term_ctx body (push ctx v arg_typ) in
+			(Hashtbl.remove ctx.usage !v; PreIr.Abs (!v, arg_typ', body'))
+		| App (l, r) -> 
+			let l' = convert_term_ctx l ctx in
+			let r' = convert_term_ctx r ctx in
+			PreIr.App (l', r')
+		| NatRec (x1, x2, x3, x4) -> 
+			let x1' = convert_term_ctx x1 ctx in
+			let x2' = convert_term_ctx x2 ctx in
+			let x3' = convert_term_ctx x3 ctx in
+			let x4' = convert_term_ctx x4 ctx in
+			PreIr.NatRec (x1', x2', x3', x4')			
+		| BoolRec (x1, x2, x3, x4) -> 
+			let x1' = convert_term_ctx x1 ctx in
+			let x2' = convert_term_ctx x2 ctx in
+			let x3' = convert_term_ctx x3 ctx in
+			let x4' = convert_term_ctx x4 ctx in
+			PreIr.BoolRec (x1', x2', x3', x4')			
+		| Type x -> PreIr.Type x
+		| Small -> PreIr.Small
+		| Prop -> PreIr.Prop
+		| Convert (x1, x2) ->
+			let x1' = convert_term_ctx x1 ctx in
+			let x2' = convert_term_ctx x2 ctx in
+			PreIr.Convert (x1', x2')
+		| Extract (x1, x2, x3, x4, x5) ->
+			let x1' = convert_term_ctx x1 ctx in
+			let x2' = convert_term_ctx x2 ctx in 
+			let x3' = convert_term_ctx x3 ctx in 
+			let x4' = convert_term_ctx x4 ctx in 
+			let x5' = convert_term_ctx x5 ctx in  
+			PreIr.Extract (x1', x2', x3', x4', x5')
+		| Subtyping (x1, x2) ->
+			let x1' = convert_term_ctx x1 ctx in
+			let x2' = convert_term_ctx x2 ctx in
+			PreIr.Subtyping (x1', x2')
+		| Sumbool (x1, x2) ->
+			let x1' = convert_term_ctx x1 ctx in
+			let x2' = convert_term_ctx x2 ctx in
+			PreIr.Sumbool (x1', x2')
+		| SBLeft (x1, x2) ->
+			let x1' = convert_term_ctx x1 ctx in
+			let x2' = convert_term_ctx x2 ctx in
+			PreIr.SBLeft (x1', x2')
+		| SBRight (x1, x2) ->
+			let x1' = convert_term_ctx x1 ctx in
+			let x2' = convert_term_ctx x2 ctx in
+			PreIr.SBRight (x1', x2')
+		| SumboolRec (x1, x2, x3, x4, x5, x6) -> 
+			let x1' = convert_term_ctx x1 ctx in
+			let x2' = convert_term_ctx x2 ctx in
+			let x3' = convert_term_ctx x3 ctx in
+			let x4' = convert_term_ctx x4 ctx in
+			let x5' = convert_term_ctx x5 ctx in
+			let x6' = convert_term_ctx x6 ctx in
+			PreIr.SumboolRec (x1', x2', x3', x4', x5', x6')			
+		| Membership (x1, x2, x3, x4) -> 
+			let x1' = convert_term_ctx x1 ctx in
+			let x2' = convert_term_ctx x2 ctx in
+			let x3' = convert_term_ctx x3 ctx in
+			let x4' = convert_term_ctx x4 ctx in
+			PreIr.Membership (x1', x2', x3', x4')			
+		| SubTrans (x1, x2, x3, x4, x5) -> 
+			let x1' = convert_term_ctx x1 ctx in
+			let x2' = convert_term_ctx x2 ctx in
+			let x3' = convert_term_ctx x3 ctx in
+			let x4' = convert_term_ctx x4 ctx in
+			let x5' = convert_term_ctx x5 ctx in
+			PreIr.SubTrans (x1', x2', x3', x4', x5')
+		| SubSub (x1, x2, x3, x4) -> 
+			let x1' = convert_term_ctx x1 ctx in
+			let x2' = convert_term_ctx x2 ctx in
+			let x3' = convert_term_ctx x3 ctx in
+			let x4' = convert_term_ctx x4 ctx in
+			PreIr.SubSub (x1', x2', x3', x4')			
+		| SubRefl x -> PreIr.SubRefl (convert_term_ctx x ctx)
+		| SubProd (x1, x2, x3, x4, x5, x6) -> 
+			let x1' = convert_term_ctx x1 ctx in
+			let x2' = convert_term_ctx x2 ctx in 
+			let x3' = convert_term_ctx x3 ctx in 
+			let x4' = convert_term_ctx x4 ctx in 
+			let x5' = convert_term_ctx x5 ctx in
+			let x6' = convert_term_ctx x6 ctx in  
+			PreIr.SubProd (x1', x2', x3', x4', x5', x6')
+		| SubUnrefine (x1, x2) -> PreIr.SubUnrefine (convert_term_ctx x1 ctx, convert_term_ctx x2 ctx)
+		| SubGen (x1, x2, x3) -> 
+			let x1' = convert_term_ctx x1 ctx in
+			let x2' = convert_term_ctx x2 ctx in
+			let x3' = convert_term_ctx x3 ctx in
+			PreIr.SubGen (x1', x2', x3')
+
+	let convert_term t = convert_term_ctx t { typing_ctx = create_empty_context (); usage = Hashtbl.create 0 }
 end
+
+module PreIrToStr = struct
+	open PreIr
+
+	let rec convert_term t =
+		match t with
+		| NatO -> "O"
+		| NatSucc -> "S"
+		| BoolTrue -> "true"
+		| BoolFalse -> "false"
+		| Nil -> "nil"
+		| Var x -> x
+		| Bool -> "bool"
+		| Nat -> "nat"
+		| Unit -> "unit"
+		| Forall (v, typ, body) -> if v = "_" then "(" ^ (convert_term typ) ^ " -> " ^ (convert_term body) ^ ")" else "(forall " ^ v ^ ":" ^ (convert_term typ) ^ "." ^ (convert_term body) ^ ")"
+		| Refine (l, r) -> "{" ^ (convert_term l) ^ " | " ^ (convert_term r) ^ "}"
+		| Abs (v, typ, body) -> "(/" ^ v ^ ":" ^ (convert_term typ) ^ "." ^ (convert_term body) ^ ")"
+		| App (l, r) -> "(" ^ (convert_term l) ^ " " ^ (convert_term r) ^ ")"
+		| NatRec (x1, x2, x3, x4) -> "nat_rec(" ^ (convert_term x1) ^ "; " ^ (convert_term x2) ^ "; " ^ (convert_term x3) ^ "; " ^ (convert_term x4) ^ ")"
+		| BoolRec (x1, x2, x3, x4) -> "bool_rec(" ^ (convert_term x1) ^ "; " ^ (convert_term x2) ^ "; " ^ (convert_term x3) ^ "; " ^ (convert_term x4) ^ ")"
+		| Type x -> "type[" ^ string_of_int x ^ "]"
+		| Small -> "small"
+		| Prop -> "prop"
+		| Convert (x1, x2) -> "convert(" ^ (convert_term x1) ^ "; " ^ (convert_term x2) ^ ")"
+		| Membership (x1, x2, x3, x4) -> "membership(" ^ (convert_term x1) ^ "; " ^ (convert_term x2) ^ "; " ^ (convert_term x3) ^ "; " ^ (convert_term x4) ^ ")"
+		| SubTrans (x1, x2, x3, x4, x5) -> "trans(" ^ convert_term x1 ^ "; " ^ convert_term x2 ^ "; " ^ convert_term x3 ^ "; " ^ convert_term x4 ^ "; " ^ convert_term x5 ^ ")"
+		| SubSub (x1, x2, x3, x4) -> "subset(" ^ (convert_term x1) ^ "; " ^ (convert_term x2) ^ "; " ^ (convert_term x3) ^ "; " ^ (convert_term x4) ^ ")"
+		| SubRefl x -> "refl(" ^ (convert_term x) ^ ")"
+		| SubProd (x1, x2, x3, x4, x5, x6) -> "prod(" ^ (convert_term x1) ^ "; " ^ (convert_term x2) ^ "; " ^ (convert_term x3) ^ "; " ^ (convert_term x4) ^ "; " ^ (convert_term x5) ^ "; " ^ (convert_term x6) ^ ")"
+		| SubUnrefine (x1, x2) -> "unrefine(" ^ convert_term x1 ^ "; " ^ convert_term x2 ^ ")"
+		| SubGen (x1, x2, x3) -> "gen(" ^ (convert_term x1) ^ "; " ^ (convert_term x2) ^ "; " ^ (convert_term x3) ^ ")"
+		| Extract (x1, x2, x3, x4, x5) -> "extract(" ^ (convert_term x1) ^ "; " ^ (convert_term x2) ^ "; " ^ (convert_term x3) ^ "; " ^ (convert_term x4) ^ "; " ^ (convert_term x5) ^ ")"
+		| Sumbool (x1, x2) -> "[" ^ (convert_term x1) ^ "] & [" ^ (convert_term x2) ^ "]"
+		| SBLeft (x1, x2) -> "sboolL(" ^ (convert_term x1) ^ "; " ^ (convert_term x2) ^ ")"
+		| SBRight (x1, x2) -> "sboolR(" ^ (convert_term x1) ^ "; " ^ (convert_term x2) ^ ")"
+		| SumboolRec (x1, x2, x3, x4, x5, x6) -> "sboolRec(" ^ (convert_term x1) ^ "; " ^ (convert_term x2) ^ "; " ^ (convert_term x3) ^ "; " ^ (convert_term x4) ^ "; " ^ convert_term x5 ^ "; " ^ convert_term x6 ^ ")"
+		| Subtyping (x1, x2) -> (convert_term x1) ^ " <: " ^ (convert_term x2) 
+end
+
+
 module PreIrToIr = struct	
-	open PreIr;;
-	module Ctx = Map.Make(String);;
+	open PreIr
+	open Common
 
-	type index_context = { mem : int Ctx.t };;
+	type unnaming_mem = int Aliases.StrMap.t
+	let empty_ctx = Aliases.StrMap.empty
+	let mem_mem = Aliases.StrMap.mem
+	let mem_add = Aliases.StrMap.add
+	let mem_find = Aliases.StrMap.find
+	let mem_map = Aliases.StrMap.map
 
-	let index_context_from_ir_typing_context ctx =
-		{ mem = CtxUtil.name_context ctx |> Array.fold_left (fun (acc, i) x -> (acc |> Ctx.add x i, i + 1)) (Ctx.empty, 0) |> fst }
+	type unnaming_context = { mem : unnaming_mem };;
+
+	let try_bind ctx x t = if mem_mem x ctx then ctx else mem_add x t ctx
+		
+
+	let unnaming_context_from_ir_context ctx =
+		{ mem = ArrayExt.fold_left_i (fun i acc (_, x) -> try_bind acc x i) empty_ctx ctx }
 	;;
 
-	let empty_context = { mem = Ctx.empty };;
-
-	let delta_indices ctx delta = Ctx.map (fun x -> x + delta) ctx;;
+	let create_empty_context () = { mem = empty_ctx };;
+	let delta_indices ctx delta = mem_map (fun x -> x + delta) ctx;;
 	let bump_indices ctx = delta_indices ctx 1;;
-	let add_var v ctx = { mem = ctx.mem |> bump_indices |> Ctx.add v 0 };;
-	let fetch_var v ctx = Ctx.find v ctx.mem;;
+	let add_var v ctx = { mem = ctx.mem |> bump_indices |> mem_add v 0 };;
+	let fetch_var v ctx = mem_find v ctx.mem;;
 
-	let rec convert_prop_ctx t ctx =
+	let rec convert_term_ctx t ctx =
 		match t with
-		| Top -> Ir.Top
-		| Bot -> Ir.Bot
-		| Forall (var, typ, body) -> Ir.Forall (var, convert_type_ctx typ ctx, ctx |> add_var var |> convert_prop_ctx body)
-		| Exists (var, typ, body) -> Ir.Exists (var, convert_type_ctx typ ctx, ctx |> add_var var |> convert_prop_ctx body)
-		| ForallGen (var, body) -> Ir.ForallGen (var, ctx |> add_var var |> convert_prop_ctx body)
-		| Eq (l, r, typ) -> Ir.Eq (convert_term_ctx l ctx, convert_term_ctx r ctx, convert_type_ctx typ ctx)
-		| Conjunction (l, r) -> Ir.Conjunction (convert_prop_ctx l ctx, convert_prop_ctx r ctx)
-		| Disjunction (l, r) -> Ir.Disjunction (convert_prop_ctx l ctx, convert_prop_ctx r ctx)
-		| Implication (l, r) -> Ir.Implication (convert_prop_ctx l ctx, convert_prop_ctx r ctx)
-	and convert_type_ctx t ctx =
-		match t with
-		| Unit -> Ir.Unit
+		| BoolFalse -> Ir.BoolFalse
+		| BoolTrue -> Ir.BoolTrue
+		| Nil -> Ir.Nil
 		| Nat -> Ir.Nat
 		| Bool -> Ir.Bool
-		| TVar var -> Ir.TVar (fetch_var var ctx)
-		| Refine (var, typ, prp) -> Ir.Refine (var, convert_type_ctx typ ctx, ctx |> add_var var |> convert_prop_ctx prp)
-		| Map (var, l, r) -> Ir.Map (var, convert_type_ctx l ctx, ctx |> add_var var |> convert_type_ctx r)
-		| Prod l -> Ir.Prod (List.map (fun x -> convert_type_ctx x ctx) l)
-		| Gen (var, body) -> Ir.Gen (var, ctx |> add_var var |> convert_type_ctx body)
-	and convert_term_ctx t ctx =
-		match t with
-		| False -> Ir.False
-		| True -> Ir.True
-		| Nil -> Ir.Nil
+		| Unit -> Ir.Unit
 		| NatO -> Ir.NatO
 		| NatSucc -> Ir.NatSucc
 		| Var var -> Ir.Var (fetch_var var ctx)
-		| Abs (var, typ, body) -> Ir.Abs (var, convert_type_ctx typ ctx, ctx |> add_var var |> convert_term_ctx body)
-		| Generic (var, body) -> Ir.Generic (var, ctx |> add_var var |> convert_term_ctx body)
+		| Abs (var, typ, body) -> Ir.Abs (ref var, convert_term_ctx typ ctx, ctx |> add_var var |> convert_term_ctx body)
+		| Forall (var, typ, body) -> Ir.Forall (ref var, convert_term_ctx typ ctx, ctx |> add_var var |> convert_term_ctx body)
+		| Small -> Ir.Small
+		| Type x -> Ir.Type x
+		| Prop -> Ir.Prop
 		| App (l, r) -> Ir.App (convert_term_ctx l ctx, convert_term_ctx r ctx)
-		| TApp (l, r) -> Ir.TApp (convert_term_ctx l ctx, convert_type_ctx r ctx)
-		| Tuple l -> Ir.Tuple (List.map (fun x -> convert_term_ctx x ctx) l)
-		| Proj (x, i) -> Ir.Proj (convert_term_ctx x ctx, i)
-		| Ite (a, b, c, d) -> Ir.Ite (convert_term_ctx a ctx, convert_term_ctx b ctx, convert_term_ctx c ctx, convert_prop_ctx d ctx)
-		| For (a, b, c, d) -> Ir.For (convert_term_ctx a ctx, convert_term_ctx b ctx, convert_term_ctx c ctx, convert_prop_ctx d ctx)
-	;;
+		| Refine (x, y) -> Ir.Refine (convert_term_ctx x ctx, convert_term_ctx y ctx)
+		| Convert (x1, x2) -> Ir.Convert (convert_term_ctx x1 ctx, convert_term_ctx x2 ctx)
+		| Membership (x1, x2, x3, x4) -> Ir.Membership (convert_term_ctx x1 ctx, convert_term_ctx x2 ctx, convert_term_ctx x3 ctx, convert_term_ctx x4 ctx)
+		| SubTrans (x1, x2, x3, x4, x5) -> Ir.SubTrans (convert_term_ctx x1 ctx, convert_term_ctx x2 ctx, convert_term_ctx x3 ctx, convert_term_ctx x4 ctx, convert_term_ctx x5 ctx)
+		| SubSub (x1, x2, x3, x4) -> Ir.SubSub (convert_term_ctx x1 ctx, convert_term_ctx x2 ctx, convert_term_ctx x3 ctx, convert_term_ctx x4 ctx)
+		| SubRefl x -> Ir.SubRefl (convert_term_ctx x ctx)
+		| SubProd (x1, x2, x3, x4, x5, x6) -> Ir.SubProd (convert_term_ctx x1 ctx, convert_term_ctx x2 ctx, convert_term_ctx x3 ctx, convert_term_ctx x4 ctx, convert_term_ctx x5 ctx, convert_term_ctx x6 ctx)
+		| SubUnrefine (x1, x2) -> Ir.SubUnrefine (convert_term_ctx x1 ctx, convert_term_ctx x2 ctx)
+		| SubGen (x1, x2, x3) -> Ir.SubGen (convert_term_ctx x1 ctx, convert_term_ctx x2 ctx, convert_term_ctx x3 ctx)
+		| Subtyping (x1, x2) -> Ir.Subtyping (convert_term_ctx x1 ctx, convert_term_ctx x2 ctx)
+		| Extract (x1, x2, x3, x4, x5) -> Ir.Extract (convert_term_ctx x1 ctx, convert_term_ctx x2 ctx, convert_term_ctx x3 ctx, convert_term_ctx x4 ctx, convert_term_ctx x5 ctx)
+		| Sumbool (x1, x2) -> Ir.Sumbool (convert_term_ctx x1 ctx, convert_term_ctx x2 ctx)
+		| SBLeft (x1, x2) -> Ir.SBLeft (convert_term_ctx x1 ctx, convert_term_ctx x2 ctx)
+		| SBRight (x1, x2) -> Ir.SBRight (convert_term_ctx x1 ctx, convert_term_ctx x2 ctx)
+		| NatRec (x1, x2, x3, x4) -> Ir.NatRec (convert_term_ctx x1 ctx, convert_term_ctx x2 ctx, convert_term_ctx x3 ctx, convert_term_ctx x4 ctx)
+		| BoolRec (x1, x2, x3, x4) -> Ir.BoolRec (convert_term_ctx x1 ctx, convert_term_ctx x2 ctx, convert_term_ctx x3 ctx, convert_term_ctx x4 ctx)
+		| SumboolRec (x1, x2, x3, x4, x5, x6) -> Ir.SumboolRec (convert_term_ctx x1 ctx, convert_term_ctx x2 ctx, convert_term_ctx x3 ctx, convert_term_ctx x4 ctx, convert_term_ctx x5 ctx, convert_term_ctx x6 ctx)
 
-	let convert_term t = convert_term_ctx t empty_context;;
+	let convert_term t = convert_term_ctx t (create_empty_context ())
+end
+
+module StrToPreIr = struct
+	open LambdaAst
+	open LambdaLex
+ 
+	let convert_str s =
+		let lex_buf = Lexing.from_string s in
+		lambda_term lex lex_buf
 end

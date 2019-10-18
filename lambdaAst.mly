@@ -1,3 +1,7 @@
+(*
+	Treat "S" more carefully
+*)
+
 %{
 open PreIr;;
 %}
@@ -6,6 +10,7 @@ open PreIr;;
 %token WILDCARD
 %token EOF
 %token COMMA
+%token SEMICOLLON
 %token <int> INT
 %token ARROW
 %token <string> VAR
@@ -16,7 +21,6 @@ open PreIr;;
 %token SUCC
 %token NIL
 %token TRUE FALSE
-%token FOR IF THEN ELSE DO
 %token SLASH FORALL EXISTS
 %token EQ
 %token PROP_AND PROP_OR PROP_IMPLIES
@@ -24,108 +28,76 @@ open PreIr;;
 %token DOT
 %token TYPE_HINT
 %token UNIT BOOL NAT
-%token FAT_ARROW
-%token GENERIC_TYPE ARROW_TYPE REFINED_TYPE
 %token BAR
 %token LSQ RSQ
 %token PROD
 %token LANGLE RANGLE
+%token SUBTYPE
+%token PROP SMALL TYPE
+%token NATREC BOOLREC SUMBOOLREC
+%token CONVERT EXTRACT
+%token MEMBERSHIP
+%token SUBTRANS SUBPROD SUBREFL SUBSUB SUBGEN SUBUNREFINE
+%token AMPERSAND
+%token SBOOLL SBOOLR
 
+%nonassoc SUBTYPE
 %left QUANTIFY
-%right FAT_ARROW PROP_IMPLIES
 %left PROP_OR
 %left PROP_AND
 %left GENERIC_TYPE
-%right ARROW_TYPE ARROW
-%right DEP_TYPE
-%left PROD
+%right ARROW
 %nonassoc EQ
 %right COMMA
 %left LPARAN LBRACE LSQ
 
-%start lambda_term lambda_type lambda_prop
+%start lambda_term
 %type <PreIr.term_ast> lambda_term
-%type <PreIr.type_ast> lambda_type
-%type <PreIr.prop_ast> lambda_prop
 %%
 
-prop_grammar:
-| TOP { Top }
-| BOT { Bot }
-| LPARAN prop_grammar RPARAN { $2 }
-| prop_grammar PROP_AND prop_grammar { Conjunction ($1, $3) }
-| prop_grammar PROP_OR prop_grammar { Disjunction ($1, $3) }
-| prop_grammar FAT_ARROW prop_grammar %prec PROP_IMPLIES { Implication ($1, $3) }
-| eq_prop_grammar { $1 }
-| FORALL VAR COLLON type_grammar DOT prop_grammar %prec QUANTIFY { Forall ($2, $4, $6) }
-| EXISTS VAR COLLON type_grammar DOT prop_grammar %prec QUANTIFY { Exists ($2, $4, $6) }
-| FORALL VAR DOT prop_grammar %prec QUANTIFY { ForallGen ($2, $4) }
-eq_prop_grammar:
-| term_grammar EQ term_grammar TYPE_HINT type_grammar { Eq ($1, $3, $5) }
-| term_grammar EQ app_term_grammar TYPE_HINT type_grammar { Eq ($1, $3, $5) }
-| term_grammar EQ abs_term_grammar TYPE_HINT type_grammar { Eq ($1, $3, $5) }
-
-| app_term_grammar EQ term_grammar TYPE_HINT type_grammar { Eq ($1, $3, $5) }
-| app_term_grammar EQ app_term_grammar TYPE_HINT type_grammar { Eq ($1, $3, $5) }
-| app_term_grammar EQ abs_term_grammar TYPE_HINT type_grammar { Eq ($1, $3, $5) }
-
-| abs_term_grammar EQ term_grammar TYPE_HINT type_grammar { Eq ($1, $3, $5) }
-| abs_term_grammar EQ app_term_grammar TYPE_HINT type_grammar { Eq ($1, $3, $5) }
-| abs_term_grammar EQ abs_term_grammar TYPE_HINT type_grammar { Eq ($1, $3, $5) }
-atom_type_grammar:
-| BOOL { Bool }
-| UNIT { Unit }
-| NAT { Nat }
-| VAR { TVar $1 }
-| LPARAN type_grammar RPARAN { $2 }
-type_grammar:
-| atom_type_grammar { $1 }
-| type_grammar ARROW type_grammar %prec ARROW_TYPE { Map ("_", $1, $3) }
-| LPARAN VAR COLLON type_grammar RPARAN ARROW type_grammar %prec DEP_TYPE { Map ($2, $4, $7) }
-| FORALL VAR DOT type_grammar %prec GENERIC_TYPE { Gen ($2, $4) }
-| LBRACE VAR COLLON type_grammar BAR prop_grammar RBRACE %prec REFINED_TYPE { Refine ($2, $4, $6) }
-| LEMMA LBRACE prop_grammar RBRACE { Refine ("_", Unit, $3) }
-| prod_type %prec PROD { Prod $1 }
-prod_type:
-| atom_type_grammar PROD atom_type_grammar { [$1; $3] }
-| atom_type_grammar PROD prod_type { $1 :: $3 }
-term_grammar:
+const:
 | NIL { Nil }
 | ZERO { NatO }
 | SUCC { NatSucc }
-| FALSE { False }
-| TRUE { True }
+| FALSE { BoolFalse }
+| TRUE { BoolTrue }
 | VAR { Var $1 }
-| LPARAN app_term_grammar RPARAN { $2 }
-| LPARAN abs_term_grammar RPARAN { $2 }
-| term_grammar DOT INT { Proj ($1, $3) }
-| LSQ term_list RSQ { Tuple $2 }
-| IF term_grammar LANGLE prop_grammar RANGLE THEN LBRACE term_grammar RBRACE ELSE LBRACE term_grammar RBRACE { Ite ($2, $8, $12, $4) }
-| FOR term_grammar LANGLE prop_grammar RANGLE DO LBRACE term_grammar RBRACE LBRACE term_grammar RBRACE { For ($2, $8, $11, $4) }
-| IF term_grammar THEN LBRACE term_grammar RBRACE ELSE LBRACE term_grammar RBRACE { Ite ($2, $5, $9, Top) }
-| FOR term_grammar DO LBRACE term_grammar RBRACE LBRACE term_grammar RBRACE { For ($2, $5, $8, Top) }
-abs_term_grammar:
-| SLASH VAR COLLON type_grammar DOT term_grammar { Abs ($2, $4, $6) }
-| SLASH VAR COLLON type_grammar DOT app_term_grammar { Abs ($2, $4, $6) }
-| SLASH SLASH VAR DOT app_term_grammar { Generic ($3, $5) }
-| SLASH SLASH VAR DOT term_grammar { Generic ($3, $5) }
-| SLASH VAR COLLON type_grammar DOT abs_term_grammar { Abs ($2, $4, $6) }
-| SLASH SLASH VAR DOT abs_term_grammar { Generic ($3, $5) }
-| SLASH WILDCARD COLLON type_grammar DOT abs_term_grammar { Abs ("_", $4, $6) }
-| SLASH SLASH WILDCARD DOT abs_term_grammar { Generic ("_", $5) }
-app_term_grammar:
-| term_grammar term_grammar { App ($1, $2) }
-| app_term_grammar term_grammar { App ($1, $2) }
-| app_term_grammar LPARAN type_grammar RPARAN { TApp ($1, $3) }
-| term_grammar LPARAN type_grammar RPARAN { TApp ($1, $3) }
-term_list:
-| app_term_grammar { [$1] }
-| term_grammar { [$1] }
-| app_term_grammar COMMA term_list { $1 :: $3 }
-| term_grammar COMMA term_list { $1 :: $3 }
+| NAT { Nat }
+| BOOL { Bool }
+| UNIT { Unit }
+| PROP { Prop }
+| SMALL { Small }
+| TYPE LSQ INT RSQ { Type $3 }
+term:
+| LSQ term RSQ AMPERSAND LSQ term RSQ { Sumbool ($2, $6) }
+| app_term { $1 }
+| SLASH VAR COLLON term DOT term { Abs ($2, $4, $6) }
+| SLASH WILDCARD COLLON term DOT term { Abs ("_", $4, $6) }
+| FORALL VAR COLLON term DOT term { Forall ($2, $4, $6) }
+| FORALL WILDCARD COLLON term DOT term { Forall ("_", $4, $6) }
+| atom_term ARROW term { Forall ("_", $1, $3) }
+| atom_term SUBTYPE atom_term { Subtyping ($1, $3) }
+atom_term:
+| SUBTRANS LPARAN term SEMICOLLON term SEMICOLLON term SEMICOLLON term SEMICOLLON term RPARAN { SubTrans ($3, $5, $7, $9, $11) }
+| SUBPROD LPARAN term SEMICOLLON term SEMICOLLON term SEMICOLLON term SEMICOLLON term SEMICOLLON term RPARAN { SubProd ($3, $5, $7, $9, $11, $13) }
+| SUBREFL LPARAN term RPARAN { SubRefl $3 }
+| SUBSUB LPARAN term SEMICOLLON term SEMICOLLON term SEMICOLLON term RPARAN { SubSub ($3, $5, $7, $9) }
+| SBOOLL LPARAN term SEMICOLLON term RPARAN { SBLeft ($3, $5) }   // proof, prop
+| SBOOLR LPARAN term SEMICOLLON term RPARAN { SBRight ($3, $5) }  // prop, proof
+| SUBUNREFINE LPARAN term SEMICOLLON term RPARAN { SubUnrefine ($3, $5) }
+| SUBGEN LPARAN term SEMICOLLON term SEMICOLLON term RPARAN { SubGen ($3, $5, $7) }
+| MEMBERSHIP LPARAN term SEMICOLLON term SEMICOLLON term SEMICOLLON term RPARAN { Membership ($3, $5, $7, $9) }
+| NATREC LPARAN term SEMICOLLON term SEMICOLLON term SEMICOLLON term RPARAN { NatRec ($3, $5, $7, $9) }
+| BOOLREC LPARAN term SEMICOLLON term SEMICOLLON term SEMICOLLON term RPARAN { BoolRec ($3, $5, $7, $9) }
+| SUMBOOLREC LPARAN term SEMICOLLON term SEMICOLLON term SEMICOLLON term SEMICOLLON term SEMICOLLON term RPARAN { SumboolRec ($3, $5, $7, $9, $11, $13) }
+| const { $1 }
+| LBRACE term BAR term RBRACE { Refine ($2, $4) }
+| LPARAN term RPARAN { $2 }
+| LSQ term BAR term RSQ { Sumbool ($2, $4) }
+app_term:
+| atom_term { $1 }
+| app_term atom_term { App ($1, $2) }
 lambda_term:
-| term_grammar EOF { $1 }
-lambda_type:
-| type_grammar EOF { $1 }
-lambda_prop:
-| prop_grammar EOF { $1 }
+| term EOF { $1 }
+
+

@@ -3,6 +3,7 @@ type token =
   | WILDCARD
   | EOF
   | COMMA
+  | SEMICOLLON
   | INT of (int)
   | ARROW
   | VAR of (string)
@@ -16,11 +17,6 @@ type token =
   | NIL
   | TRUE
   | FALSE
-  | FOR
-  | IF
-  | THEN
-  | ELSE
-  | DO
   | SLASH
   | FORALL
   | EXISTS
@@ -35,20 +31,31 @@ type token =
   | UNIT
   | BOOL
   | NAT
-  | FAT_ARROW
-  | GENERIC_TYPE
-  | ARROW_TYPE
-  | REFINED_TYPE
   | BAR
   | LSQ
   | RSQ
   | PROD
   | LANGLE
   | RANGLE
+  | SUBTYPE
+  | PROP
+  | SMALL
+  | TYPE
+  | NATREC
+  | BOOLREC
+  | SUMBOOLREC
+  | CONVERT
+  | EXTRACT
+  | MEMBERSHIP
+  | SUBTRANS
+  | SUBPROD
+  | SUBREFL
+  | SUBSUB
+  | SUBGEN
+  | SUBUNREFINE
+  | AMPERSAND
+  | SBOOLL
+  | SBOOLR
 
 val lambda_term :
   (Lexing.lexbuf  -> token) -> Lexing.lexbuf -> PreIr.term_ast
-val lambda_type :
-  (Lexing.lexbuf  -> token) -> Lexing.lexbuf -> PreIr.type_ast
-val lambda_prop :
-  (Lexing.lexbuf  -> token) -> Lexing.lexbuf -> PreIr.prop_ast

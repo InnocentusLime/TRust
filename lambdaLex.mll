@@ -3,23 +3,33 @@
 	let keyword_table = (
 		let temp = Hashtbl.create 2 in
 		(
-			Hashtbl.add temp "for" FOR;
-			Hashtbl.add temp "do" DO;
-			Hashtbl.add temp "if" IF; 
-			Hashtbl.add temp "else" ELSE;
-			Hashtbl.add temp "then" THEN; 
+			Hashtbl.add temp "natRec" NATREC;
+			Hashtbl.add temp "sumboolRec" SUMBOOLREC;
+			Hashtbl.add temp "boolRec" BOOLREC; 
 			Hashtbl.add temp "nat" NAT;
 			Hashtbl.add temp "unit" UNIT;
 			Hashtbl.add temp "bool" BOOL;
 			Hashtbl.add temp "false" FALSE;
 			Hashtbl.add temp "true" TRUE;
 			Hashtbl.add temp "nil" NIL;
-			Hashtbl.add temp "succ" SUCC;
+			Hashtbl.add temp "S" SUCC;
 			Hashtbl.add temp "forall" FORALL;
 			Hashtbl.add temp "exists" EXISTS;
 			Hashtbl.add temp "TRUE" TOP;
 			Hashtbl.add temp "FALSE" BOT; 
 			Hashtbl.add temp "lemma" LEMMA;
+			Hashtbl.add temp "small" SMALL;
+			Hashtbl.add temp "type" TYPE;
+			Hashtbl.add temp "prop" PROP;
+			Hashtbl.add temp "trans" SUBTRANS;
+			Hashtbl.add temp "prod" SUBPROD;
+			Hashtbl.add temp "sub" SUBSUB;
+			Hashtbl.add temp "gen" SUBGEN;
+			Hashtbl.add temp "unrefine" SUBUNREFINE;
+			Hashtbl.add temp "membership" MEMBERSHIP;
+			Hashtbl.add temp "refl" SUBREFL;
+			Hashtbl.add temp "sboolL" SBOOLL;
+			Hashtbl.add temp "sboolR" SBOOLR;
 			temp
 		)
 	);;
@@ -37,10 +47,13 @@ let ident = (letter (alpha_num*)) | ('_' (alpha_num+))
 
 rule lex =
 parse
+| ";" { SEMICOLLON }
 | "_" { WILDCARD }
 | "*" { PROD }
 | "<" { LANGLE }
+| "&" { AMPERSAND }
 | ":>" { TYPE_HINT }
+| "<:" { SUBTYPE }
 | ">" { RANGLE }
 | "O" { ZERO }
 | "(" { LPARAN }
@@ -53,7 +66,6 @@ parse
 | "\\/" { PROP_OR }
 | "/\\" { PROP_AND }
 | "->" { ARROW }
-| "=>" { FAT_ARROW }
 | "/" { SLASH }
 | (space | newline) { lex lexbuf }
 | ident as s { if Hashtbl.mem keyword_table s then Hashtbl.find keyword_table s else VAR s }

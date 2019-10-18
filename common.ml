@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 module ArrayExt = struct
 	let exists f arr = 
 		let rec impl i f arr =
@@ -35,7 +34,3 @@ module Aliases = struct
 	type 'a str_hashtbl = (string, 'a) Hashtbl.t
 	module StrMap = Map.Make(String)
 end
-
-=======
-module StringMap = Map.Make(String)
->>>>>>> f1ddb288990c4640de608134873338bcddfcd79a

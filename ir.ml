@@ -3,6 +3,12 @@
 	the intermidiate representation of Rust programs.
 	The repr is using De Brujin indices
 *)
+(*
+	The actual system is really simple
+	(CoC + Nats + Bool + Unit + Subtyping)
+	Any other terms are notations which can be later expanded
+	by reduction.
+*)
 
 type term_ast =
 | NatO | NatSucc | BoolTrue | BoolFalse | Nil | Var of int
@@ -25,9 +31,57 @@ type term_ast =
 | SBLeft of term_ast * term_ast
 | SBRight of term_ast * term_ast
 | SumboolRec of term_ast * term_ast * term_ast * term_ast * term_ast * term_ast (* l_prop, r_prop, type, left, right, arg *)
+(* "Ghost terms" or "notations" --- the terms which are here for syntaticalc convenience, but get expanded to their definition when needed *)
+| Conjunction of term_ast * term_ast
+| Disjunction of term_ast * term_ast
+| OrIntroL of term_ast * term_ast * term_ast
+| OrIntroR of term_ast * term_ast * term_ast
+| AndIntro of term_ast * term_ast * term_ast * term_ast
+| Eq of term_ast * term_ast * term_ast
+| EqRefl of term_ast * term_ast (* x, type *)
+| Exists of string ref * term_ast * term_ast
+| Exist of term_ast * term_ast * term_ast * term_ast (* type, predicate, term, proof *)
 
 (*
-	We define a special equality to ignore the string pointers
+let rec var_occurs v t =
+	match t with
+	| NatO -> false
+	| NatSucc -> false
+	| BoolTrue -> false
+	| BoolFalse -> false
+	| Nil -> false
+	| Var x -> x = v
+	| Bool -> false
+	| Nat -> false
+	| Unit -> false
+	| Small -> false
+	| Prop -> false
+	| App (l, r) -> var_occurs v l || var_occurs v r
+	| Forall (_, arg, body) -> var_occurs v arg || var_occurs (v + 1) body
+	| Abs (_, arg, body) -> var_occurs v arg || var_occurs (v + 1) body
+	| Refine (l, r) -> var_occurs v l || var_occurs v r
+	| NatRec (x1, x2, x3, x4) -> var_occurs v x1 || var_occurs v x2 || var_occurs v x3 || var_occurs v x4
+	| BoolRec (x1, x2, x3, x4) -> var_occurs v x1 || var_occurs v x2 || var_occurs v x3 || var_occurs v x4
+	| Type _ -> false
+	| Convert (x1, x2) -> var_occurs v x1 || var_occurs v x2
+	| Membership (x1, x2, x3, x4) -> var_occurs v x1 || var_occurs v x2 || var_occurs v x3 || var_occurs v x4
+	| SubTrans (x1, x2, x3, x4, x5) -> var_occurs v x1 || var_occurs v x2 || var_occurs v x3 || var_occurs v x4 || var_occurs v x5
+	| SubSub (x1, x2, x3, x4) -> var_occurs v x1 || var_occurs v x2 || var_occurs v x3 || var_occurs v x4
+	| SubRefl x -> var_occurs v x
+	| SubProd (x1, x2, x3, x4, x5, x6) -> var_occurs v x1 || var_occurs v x2 || var_occurs v x3 || var_occurs v x4 || var_occurs v x5 || var_occurs v x6
+	| SubUnrefine (x1, x2) -> var_occurs v x1 || var_occurs v x2
+	| SubGen (x1, x2, x3) -> var_occurs v x1 || var_occurs v x2 || var_occurs v x3
+	| Subtyping (x1, x2) -> var_occurs v x1 || var_occurs v x2
+	| Extract (x1, x2, x3, x4, x5) -> var_occurs v x1 || var_occurs v x2 || var_occurs v x3 || var_occurs v x4 || var_occurs v x5
+	| Sumbool (x1, x2) -> var_occurs v x1 || var_occurs v x2
+	| SBLeft (x1, x2) -> var_occurs v x1 || var_occurs v x2
+	| SBRight (x1, x2) -> var_occurs v x1 || var_occurs v x2
+	| SumboolRec (x1, x2, x3, x4, x5, x6) -> var_occurs v x1 || var_occurs v x2 || var_occurs v x3 || var_occurs v x4 || var_occurs v x5 || var_occurs v x6
+	| _ -> failwith "not implemented"
+*)
+
+(*
+	We define a special equality to ignore the string pointers and notations
 *)
 let rec eq_terms l r =
 	match (l, r) with
@@ -40,29 +94,39 @@ let rec eq_terms l r =
 	| (Bool, Bool) -> true
 	| (Nat, Nat) -> true
 	| (Unit, Unit) -> true
-	| (Forall (_, l_typ, l_body), Forall (_, r_typ, r_body)) -> eq_terms l_typ r_typ && eq_terms l_body r_body
-	| (Refine (l1, l2), Refine (r1, r2)) -> eq_terms l1 r1 && eq_terms l2 r2
-	| (Abs (_, l_type, l_body), Abs (_, r_type, r_body)) -> eq_terms l_type r_type && eq_terms l_body r_body
-	| (App (l_x, l_y), App (r_x, r_y)) -> eq_terms l_x r_x && eq_terms l_y r_y
-	| (NatRec (l1, l2, l3, l4), NatRec (r1, r2, r3, r4)) -> eq_terms l1 r1 && eq_terms l2 r2 && eq_terms l3 r3 && eq_terms l4 r4
-	| (BoolRec (l1, l2, l3, l4), BoolRec (r1, r2, r3, r4)) -> eq_terms l1 r1 && eq_terms l2 r2 && eq_terms l3 r3 && eq_terms l4 r4
+	| (Forall (_, l_typ, l_body), Forall (_, r_typ, r_body)) -> eq_terms   l_typ r_typ && eq_terms   l_body r_body
+	| (Refine (l1, l2), Refine (r1, r2)) -> eq_terms   l1 r1 && eq_terms   l2 r2
+	| (Abs (_, l_type, l_body), Abs (_, r_type, r_body)) -> eq_terms   l_type r_type && eq_terms   l_body r_body
+	| (App (l_x, l_y), App (r_x, r_y)) -> eq_terms   l_x r_x && eq_terms   l_y r_y
+	| (NatRec (l1, l2, l3, l4), NatRec (r1, r2, r3, r4)) -> eq_terms   l1 r1 && eq_terms   l2 r2 && eq_terms   l3 r3 && eq_terms   l4 r4
+	| (BoolRec (l1, l2, l3, l4), BoolRec (r1, r2, r3, r4)) -> eq_terms   l1 r1 && eq_terms   l2 r2 && eq_terms   l3 r3 && eq_terms   l4 r4
 	| (Type x, Type y) -> x = y
 	| (Small, Small) -> true
 	| (Prop, Prop) -> true
-	| (Convert (l1, l2), Convert (r1, r2)) -> eq_terms l1 r1 && eq_terms l2 r2
-	| (Membership (l1, l2, l3, l4), Membership (r1, r2, r3, r4)) -> eq_terms l1 r1 && eq_terms l2 r2 && eq_terms l3 r3 && eq_terms l4 r4
-	| (SubTrans (l1, l2, l3, l4, l5), SubTrans (r1, r2, r3, r4, r5)) -> eq_terms l1 r1 && eq_terms l2 r2 && eq_terms l3 r3 && eq_terms l4 r4 && eq_terms l5 r5
-	| (SubSub (l1, l2, l3, l4), SubSub (r1, r2, r3, r4)) -> eq_terms l1 r1 && eq_terms l2 r2 && eq_terms l3 r3 && eq_terms l4 r4
-	| (SubRefl l, SubRefl r) -> eq_terms l r
-	| (SubProd (l1, l2, l3, l4, l5, l6), SubProd (r1, r2, r3, r4, r5, r6)) -> eq_terms l1 r1 && eq_terms l2 r2 && eq_terms l3 r3 && eq_terms l4 r4 && eq_terms l5 r5 && eq_terms l6 r6
-	| (SubUnrefine (l1, l2), SubUnrefine (r1, r2)) -> eq_terms l1 r1 && eq_terms l2 r2
-	| (SubGen (l1, l2, l3), SubGen (r1, r2, r3)) -> eq_terms l1 r1 && eq_terms l2 r2 && eq_terms l3 r3
-	| (Extract (l1, l2, l3, l4, l5), Extract (r1, r2, r3, r4, r5)) -> eq_terms l1 r1 && eq_terms l2 r2 && eq_terms l3 r3 && eq_terms l4 r4 && eq_terms l5 r5
-	| (Subtyping (l1, l2), Subtyping (r1, r2)) -> eq_terms l1 r1 && eq_terms l2 r2
-	| (SBLeft (l1, l2), SBLeft (r1, r2)) -> eq_terms l1 r1 && eq_terms l2 r2
-	| (SBRight (l1, l2), SBRight (r1, r2)) -> eq_terms l1 r1 && eq_terms l2 r2
-	| (Sumbool (l1, l2), Sumbool (r1, r2)) -> eq_terms l1 r1 && eq_terms l2 r2
-	| (SumboolRec (l1, l2, l3, l4, l5, l6), SumboolRec (r1, r2, r3, r4, r5, r6)) -> eq_terms l1 r1 && eq_terms l2 r2 && eq_terms l3 r3 && eq_terms l4 r4 && eq_terms l5 r5 && eq_terms l6 r6
+	| (Convert (l1, l2), Convert (r1, r2)) -> eq_terms   l1 r1 && eq_terms   l2 r2
+	| (Membership (l1, l2, l3, l4), Membership (r1, r2, r3, r4)) -> eq_terms   l1 r1 && eq_terms   l2 r2 && eq_terms   l3 r3 && eq_terms   l4 r4
+	| (SubTrans (l1, l2, l3, l4, l5), SubTrans (r1, r2, r3, r4, r5)) -> eq_terms   l1 r1 && eq_terms   l2 r2 && eq_terms   l3 r3 && eq_terms   l4 r4 && eq_terms   l5 r5
+	| (SubSub (l1, l2, l3, l4), SubSub (r1, r2, r3, r4)) -> eq_terms   l1 r1 && eq_terms   l2 r2 && eq_terms   l3 r3 && eq_terms   l4 r4
+	| (SubRefl l, SubRefl r) -> eq_terms   l r
+	| (SubProd (l1, l2, l3, l4, l5, l6), SubProd (r1, r2, r3, r4, r5, r6)) -> eq_terms   l1 r1 && eq_terms   l2 r2 && eq_terms   l3 r3 && eq_terms   l4 r4 && eq_terms   l5 r5 && eq_terms   l6 r6
+	| (SubUnrefine (l1, l2), SubUnrefine (r1, r2)) -> eq_terms   l1 r1 && eq_terms   l2 r2
+	| (SubGen (l1, l2, l3), SubGen (r1, r2, r3)) -> eq_terms   l1 r1 && eq_terms   l2 r2 && eq_terms   l3 r3
+	| (Extract (l1, l2, l3, l4, l5), Extract (r1, r2, r3, r4, r5)) -> eq_terms   l1 r1 && eq_terms   l2 r2 && eq_terms   l3 r3 && eq_terms   l4 r4 && eq_terms   l5 r5
+	| (Subtyping (l1, l2), Subtyping (r1, r2)) -> eq_terms   l1 r1 && eq_terms   l2 r2
+	| (SBLeft (l1, l2), SBLeft (r1, r2)) -> eq_terms   l1 r1 && eq_terms   l2 r2
+	| (SBRight (l1, l2), SBRight (r1, r2)) -> eq_terms   l1 r1 && eq_terms   l2 r2
+	| (Sumbool (l1, l2), Sumbool (r1, r2)) -> eq_terms   l1 r1 && eq_terms   l2 r2
+	| (SumboolRec (l1, l2, l3, l4, l5, l6), SumboolRec (r1, r2, r3, r4, r5, r6)) -> eq_terms   l1 r1 && eq_terms   l2 r2 && eq_terms   l3 r3 && eq_terms   l4 r4 && eq_terms   l5 r5 && eq_terms   l6 r6
+
+	| (Conjunction (l1, l2), Conjunction (r1, r2)) -> eq_terms l1 r1 && eq_terms l2 r2
+	| (Disjunction (l1, l2), Disjunction (r1, r2)) -> eq_terms l1 r1 && eq_terms l2 r2
+	| (AndIntro (l1, l2, l3, l4), AndIntro (r1, r2, r3, r4)) -> eq_terms l1 r1 && eq_terms l2 r2 && eq_terms l3 r3 && eq_terms l4 r4
+	| (OrIntroL (l1, l2, l3), OrIntroL (r1, r2, r3)) -> eq_terms l1 r1 && eq_terms l2 r2 && eq_terms l3 r3
+	| (OrIntroR (l1, l2, l3), OrIntroR (r1, r2, r3)) -> eq_terms l1 r1 && eq_terms l2 r2 && eq_terms l3 r3
+	| (Eq (l1, l2, l3), Eq (r1, r2, r3)) -> eq_terms l1 r1 && eq_terms l2 r2 && eq_terms l3 r3
+	| (EqRefl (l1, l2), EqRefl (r1, r2)) -> eq_terms l1 r1 && eq_terms l2 r2
+	| (Exists (_, l1, l2), Exists (_, r1, r2)) -> eq_terms l1 r1 && eq_terms l2 r2
+	| (Exist (l1, l2, l3, l4), Exist (r1, r2, r3, r4)) -> eq_terms l1 r1 && eq_terms l2 r2 && eq_terms l3 r3 && eq_terms l4 r4
 	| _ -> false
 
 (*t |^d_c*)
@@ -100,6 +164,16 @@ let rec lift t c d =
 	| SBLeft (x1, x2) -> SBLeft (lift x1 c d, lift x2 c d)
 	| SBRight (x1, x2) -> SBRight (lift x1 c d, lift x2 c d)
 	| SumboolRec (x1, x2, x3, x4, x5, x6) -> SumboolRec (lift x1 c d, lift x2 c d, lift x3 c d, lift x4 c d, lift x5 c d, lift x6 c d)
+
+	| Conjunction (l, r) -> Conjunction (lift l c d, lift r c d)
+	| Disjunction (l, r) -> Disjunction (lift l c d, lift r c d)
+	| OrIntroL (x1, x2, x3) -> OrIntroL (lift x1 c d, lift x2 c d, lift x3 c d)
+	| OrIntroR (x1, x2, x3) -> OrIntroR (lift x1 c d, lift x2 c d, lift x3 c d)
+	| AndIntro (x1, x2, x3, x4) -> AndIntro (lift x1 c d, lift x2 c d, lift x3 c d, lift x4 c d)
+	| Eq (x1, x2, x3) -> Eq (lift x1 c d, lift x2 c d, lift x3 c d)
+	| EqRefl (x, typ) -> EqRefl (lift x c d, lift typ c d)
+	| Exists (str, arg, body) -> Exists (str, lift arg c d, lift body (c + 1) d)
+	| Exist (x1, x2, x3, x4) -> Exist (lift x1 c d, lift x2 c d, lift x3 c d, lift x4 c d)
 ;;
 
 let clean_after_unbind t = lift t 0 (-1);;
@@ -143,9 +217,20 @@ let rec subst t v x =
 	| SBRight (x1, x2) -> SBRight (subst x1 v x, subst x2 v x)
 	| SumboolRec (x1, x2, x3, x4, x5, x6) -> SumboolRec (subst x1 v x, subst x2 v x, subst x3 v x, subst x4 v x, subst x5 v x, subst x6 v x)
 
+	| Conjunction (l, r) -> Conjunction (subst l v x, subst r v x)
+	| Disjunction (l, r) -> Disjunction (subst l v x, subst r v x)
+	| OrIntroL (l, r, lt) -> OrIntroL (subst l v x, subst r v x, subst lt v x)	
+	| OrIntroR (l, r, rt) -> OrIntroR (subst l v x, subst r v x, subst rt v x)
+	| AndIntro (l, r, lt, rt) -> AndIntro (subst l v x, subst r v x, subst lt v x, subst rt v x)
+	| Eq (x1, x2, x3) -> Eq (subst x1 v x, subst x2 v x, subst x3 v x)
+	| EqRefl (t, typ) -> EqRefl (subst t v x, subst typ v x)
+	| Exists (str, typ, body) -> Exists (str, subst typ v x, subst body (v + 1) (lift1 x))
+	| Exist (x1, x2, x3, x4) -> Exist (subst x1 v x, subst x2 v x, subst x3 v x, subst x4 v x) 
+
+
 let top_subst target subst_value = clean_after_unbind (subst target 0 (lift1 subst_value))
 
-let rec reduction_step t =
+let rec reduction_step ?(notation_reduction = true) t =
 	match t with
 	| BoolTrue -> BoolTrue
 	| BoolFalse -> BoolFalse
@@ -157,36 +242,36 @@ let rec reduction_step t =
 	| Nat -> Nat
 	| Unit -> Unit
 	| Forall (str, typ, body) -> (
-		let typ' = reduction_step typ in
-		if eq_terms typ typ' then Forall (str, typ, reduction_step body)
+		let typ' = reduction_step ~notation_reduction:notation_reduction typ in
+		if eq_terms  typ typ' then Forall (str, typ, reduction_step ~notation_reduction:notation_reduction body)
 		else Forall (str, typ', body)
 	)
 	| Refine (l, r) -> (
-		let l' = reduction_step l in
-		if eq_terms l l' then Refine (l, reduction_step r)
+		let l' = reduction_step ~notation_reduction:notation_reduction l in
+		if eq_terms  l l' then Refine (l, reduction_step ~notation_reduction:notation_reduction r)
  		else Refine (l', r)
 	)
 	| Abs (str, typ, body) -> (
-		let typ' = reduction_step typ in
-		if eq_terms typ typ' then Abs (str, typ, reduction_step body)
+		let typ' = reduction_step ~notation_reduction:notation_reduction typ in
+		if eq_terms  typ typ' then Abs (str, typ, reduction_step ~notation_reduction:notation_reduction body)
 		else Abs (str, typ, body)
 	)
 	| App (Abs (str, typ, body), arg) -> (
 		let abs = Abs (str, typ, body) in
-		let abs' = reduction_step abs in
-		if eq_terms abs abs' then top_subst body arg
+		let abs' = reduction_step ~notation_reduction:notation_reduction abs in
+		if eq_terms   abs abs' then top_subst body arg
 		else App (abs', arg)
 	)
 	| App (l, r) -> (
-		let l' = reduction_step l in
-		if eq_terms l l' then App (l, reduction_step r)
+		let l' = reduction_step ~notation_reduction:notation_reduction l in
+		if eq_terms   l l' then App (l, reduction_step ~notation_reduction:notation_reduction r)
 		else App (l', r)
 	)
 	| NatRec (x1, x2, x3, App (NatSucc, n)) -> App (x3, NatRec (x1, x2, x3, n))
-	| NatRec (x1, x2, x3, x4) -> NatRec (x1, x2, x3, reduction_step x4)
+	| NatRec (x1, x2, x3, x4) -> NatRec (x1, x2, x3, reduction_step ~notation_reduction:notation_reduction x4)
 	| BoolRec (x1, x2, x3, BoolFalse) -> x2
 	| BoolRec (x1, x2, x3, BoolTrue) -> x3
-	| BoolRec (x1, x2, x3, x4) -> BoolRec (x1, x2, x3, reduction_step x4)
+	| BoolRec (x1, x2, x3, x4) -> BoolRec (x1, x2, x3, reduction_step ~notation_reduction:notation_reduction x4)
 	| Type x -> Type x
 	| Small -> Small
 	| Prop -> Prop
@@ -213,36 +298,36 @@ let rec reduction_step t =
 			)
 		)
 	| Convert (x1, x2) -> (
-		let x1' = reduction_step x1 in
-		if eq_terms x1 x1' then Convert (x1', x2)
-		else Convert (x1, reduction_step x2)
+		let x1' = reduction_step ~notation_reduction:notation_reduction x1 in
+		if eq_terms   x1 x1' then Convert (x1', x2)
+		else Convert (x1, reduction_step ~notation_reduction:notation_reduction x2)
 	)
 	| Extract (_, _, _, x1, Membership (_, _, x2, x3)) -> App (App (x1, x3), x2)
-	| Extract (x1, x2, x3, x4, x5) -> Extract (x1, x2, x3, x4, reduction_step x5)
+	| Extract (x1, x2, x3, x4, x5) -> Extract (x1, x2, x3, x4, reduction_step ~notation_reduction:notation_reduction x5)
 	| Subtyping (x1, x2) -> (
-		let x1' = reduction_step x1 in
-		if eq_terms x1 x1' then Subtyping (x1, reduction_step x2)
+		let x1' = reduction_step ~notation_reduction:notation_reduction x1 in
+		if eq_terms   x1 x1' then Subtyping (x1, reduction_step ~notation_reduction:notation_reduction x2)
 		else Subtyping (x1', x2)
 	)
 	| Sumbool (x1, x2) -> (
-		let x1' = reduction_step x1 in
-		if eq_terms x1 x1' then Subtyping (x1, reduction_step x2)
+		let x1' = reduction_step ~notation_reduction:notation_reduction x1 in
+		if eq_terms   x1 x1' then Subtyping (x1, reduction_step ~notation_reduction:notation_reduction x2)
 		else Subtyping (x1', x2)
 	)
 	| SBLeft (x1, x2) -> (
-		let x1' = reduction_step x1 in
-		if eq_terms x1 x1' then Subtyping (x1, reduction_step x2)
+		let x1' = reduction_step ~notation_reduction:notation_reduction x1 in
+		if eq_terms   x1 x1' then Subtyping (x1, reduction_step ~notation_reduction:notation_reduction x2)
 		else Subtyping (x1', x2)
 	)
 	| SBRight (x1, x2) -> (
-		let x1' = reduction_step x1 in
-		if eq_terms x1 x1' then Subtyping (x1, reduction_step x2)
+		let x1' = reduction_step ~notation_reduction:notation_reduction x1 in
+		if eq_terms   x1 x1' then Subtyping (x1, reduction_step ~notation_reduction:notation_reduction x2)
 		else Subtyping (x1', x2)             
 	)
 	| SumboolRec (_, _, x1, x2, x3, SBLeft (x4, _)) -> App (x2, x4)
 	| SumboolRec (_, _, x1, x2, x3, SBRight (_, x4)) -> App (x3, x4)
-	| SumboolRec (x1, x2, x3, x4, x5, x6) -> SumboolRec (x1, x2, x3, x4, x5, reduction_step x6)
-	| Membership (x1, x2, x3, x4) -> Membership (x1, x2, x3, reduction_step x4)
+	| SumboolRec (x1, x2, x3, x4, x5, x6) -> SumboolRec (x1, x2, x3, x4, x5, reduction_step ~notation_reduction:notation_reduction x6)
+	| Membership (x1, x2, x3, x4) -> Membership (x1, x2, x3, reduction_step ~notation_reduction:notation_reduction x4)
 	| SubTrans _ -> t
 	| SubSub _ -> t
 	| SubRefl _ -> t
@@ -250,10 +335,213 @@ let rec reduction_step t =
 	| SubUnrefine _ -> t
 	| SubGen _ -> t
 
-let rec find_normal_form x =
-	let x' = reduction_step x in
-	if eq_terms x x' then x 
-	else find_normal_form x'
+	| Conjunction (l, r) -> (
+		let l', r' = reduction_step ~notation_reduction:notation_reduction l, reduction_step ~notation_reduction:notation_reduction r in
+		if eq_terms l l' then (
+			if eq_terms r r' then (
+				if notation_reduction then (
+					Forall (
+						ref "T",
+						Prop,
+						Forall (
+							ref "_",
+							Forall (
+								ref "_", 
+								lift l 0 2, 
+								Forall (
+									ref "_",
+									lift r 0 3,
+									Var 2
+								)
+							),
+							Var 1
+						)
+					)
+				)
+				else Conjunction (l, r)
+			) else Conjunction (l, r')
+		)
+		else Conjunction (l', r)
+	)
+	| Disjunction (l, r) -> (
+		let l', r' = reduction_step ~notation_reduction:notation_reduction l, reduction_step ~notation_reduction:notation_reduction r in
+		if eq_terms l l' then (
+			if eq_terms r r' then (
+				if notation_reduction then (
+					Forall (
+						ref "T",
+						Prop,
+						Forall (
+							ref "_",
+							Forall (ref "_", lift l 0 2, Var 1),
+							Forall (
+								ref "_",
+								Forall (ref "_", lift r 0 2, Var 2),
+								Var 2
+							)
+						)
+					)
+				)
+				else Disjunction (l, r)
+			) else Disjunction (l, r')
+		)
+		else Disjunction (l', r)
+	)
+	| OrIntroL (l, r, lt) -> (
+		let l', r', lt' = reduction_step ~notation_reduction:notation_reduction l, reduction_step ~notation_reduction:notation_reduction r, reduction_step ~notation_reduction:notation_reduction lt in
+		if eq_terms l l' then (
+			if eq_terms r r' then (
+				if eq_terms lt lt' then (
+					if notation_reduction then (
+						Abs (
+							ref "T",
+							Prop,
+							Abs (
+								ref "f",
+								Forall (ref "_", lift lt 0 1, Var 1),
+								Abs (
+									ref "g",
+									Forall (ref "_", lift r 0 2, Var 2),
+									App (Var 1, lift l 0 3)
+								)
+							)
+						)
+					) else OrIntroL (l, r, lt)
+				) else OrIntroL (l, r, lt')
+			) else OrIntroL (l, r', lt)
+		)
+		else OrIntroL (l', r, lt)
+	)
+	| OrIntroR (r, l, rt) -> (
+		let l', r', rt' = reduction_step ~notation_reduction:notation_reduction l, reduction_step ~notation_reduction:notation_reduction r, reduction_step ~notation_reduction:notation_reduction rt in
+		if eq_terms r r' then (
+			if eq_terms l l' then (
+				if eq_terms rt rt' then (
+					if notation_reduction then (
+						Abs (
+							ref "T",
+							Prop,
+							Abs (
+								ref "f",
+								Forall (ref "_", lift l 0 1, Var 1),
+								Abs (
+									ref "g",
+									Forall (ref "_", lift rt 0 2, Var 2),
+									App (Var 0, lift r 0 3)
+								)
+							)
+						)
+					) else OrIntroL (r, l, rt)
+				) else OrIntroL (r, l, rt')
+			) else OrIntroL (r, l', rt)
+		)
+		else OrIntroL (r', l, rt)
+	)
+	| AndIntro (l, r, lt, rt) -> (
+		let l', r', lt', rt' = reduction_step ~notation_reduction:notation_reduction l, reduction_step ~notation_reduction:notation_reduction r, reduction_step ~notation_reduction:notation_reduction lt, reduction_step ~notation_reduction:notation_reduction rt in
+		if eq_terms l l' then (
+			if eq_terms r r' then (
+				if eq_terms lt lt' then (
+					if eq_terms rt rt' then (
+						if notation_reduction then (
+ 							Abs (
+ 								ref "T",
+								Prop,
+								Abs (
+									ref "f",
+									Forall (ref "_", lift l 0 1, Forall (ref "_", lift r 0 2, Var 2)),
+									App (App (Var 0, lift lt 0 2), lift rt 0 2)
+								)
+							)
+						) else AndIntro (l, r, lt, rt)
+					) else AndIntro (l, r, lt, rt')
+				) else AndIntro (l, r, lt', rt)
+			) else AndIntro (l, r', lt, rt)
+		) else AndIntro (l', r, lt, rt)
+	)
+	| Eq (l, r, typ) -> (
+		let l', r', typ' = reduction_step ~notation_reduction:notation_reduction l, reduction_step ~notation_reduction:notation_reduction r, reduction_step ~notation_reduction:notation_reduction typ in
+		if eq_terms l l' then (
+			if eq_terms r r' then (
+				if eq_terms typ typ' then (
+					if notation_reduction then (
+						Forall (
+							ref "P",
+							Forall (ref "_", typ, Prop),
+							Forall (
+								ref "_",
+								App (Var 0, lift l 0 1),
+								App (Var 1, lift r 0 2)
+							)
+						)
+					) else Eq (l, r, typ)
+				) else Eq (l, r, typ')
+			) else Eq (l, r', typ)
+		) else Eq (l', r, typ)
+	)
+	| EqRefl (x, typ) -> (
+		let x', typ' = reduction_step ~notation_reduction:notation_reduction x, reduction_step ~notation_reduction:notation_reduction typ in
+		if eq_terms x x' then (
+			if eq_terms typ typ' then (
+				if notation_reduction then (
+					Abs (
+						ref "P",
+						Forall (ref "_", typ, Prop),
+						Abs (
+							ref "p",
+							App (Var 0, lift x 0 1),
+							Var 0
+						)
+					)
+				) else EqRefl (x, typ)
+			) else EqRefl (x, typ')
+		) else EqRefl (x', typ)
+	)
+	| Exists (str, typ, body) -> (
+		let typ', body' = reduction_step ~notation_reduction:notation_reduction typ, reduction_step ~notation_reduction:notation_reduction body in
+		if eq_terms typ typ' then (
+			if eq_terms body body' then (
+				if notation_reduction then (
+ 					Forall (
+ 						ref "P",
+						Prop,
+						Forall (
+							ref "_",
+							Forall (str, typ, Forall (ref "_", body, Var 2)),
+							Var 1
+						)
+					)
+				) else Exists (str, typ, body)
+			) else Exists (str, typ, body')
+		) else Exists (str, typ', body)
+	)
+	| Exist (x1, x2, x3, x4) -> (
+		let x1', x2', x3', x4' = reduction_step ~notation_reduction:notation_reduction x1, reduction_step ~notation_reduction:notation_reduction x2, reduction_step ~notation_reduction:notation_reduction x3, reduction_step ~notation_reduction:notation_reduction x4 in
+		if eq_terms x1 x1' then (
+			if eq_terms x2 x2' then (
+				if eq_terms x3 x3' then (
+					if eq_terms x4 x4' then (
+						if notation_reduction then (
+							Abs (
+								ref "P",	
+								Prop,
+								Abs (
+									ref "f",
+									Forall (ref "x", lift x1 0 1, Forall (ref "_", App (lift x2 0 2, Var 0), Var 2)),
+									App (App (Var 0, lift x3 0 2), lift x4 0 2)
+								)					
+							)
+						) else Exist (x1, x2, x3, x4)
+					) else Exist (x1, x2, x3, x4')
+				) else Exist (x1, x2, x3', x4)
+			) else Exist (x1, x2', x3, x4)
+		) else Exist (x1', x2, x3, x4)
+	)
+	                                                                               
+let rec find_normal_form ?(notation_reduction = true) x =
+	let x' = reduction_step ~notation_reduction:notation_reduction x in
+	if eq_terms  x x' then x
+	else find_normal_form ~notation_reduction:notation_reduction x' 
 
 let beta_eq x y = eq_terms (find_normal_form x) (find_normal_form y)
 

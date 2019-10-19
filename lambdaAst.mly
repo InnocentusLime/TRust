@@ -1,9 +1,9 @@
-(*
+/*
 	Treat "S" more carefully
-*)
+*/
 
 %{
-open PreIr;;
+open PreIr
 %}
 
 %token LEMMA
@@ -40,16 +40,25 @@ open PreIr;;
 %token SUBTRANS SUBPROD SUBREFL SUBSUB SUBGEN SUBUNREFINE
 %token AMPERSAND
 %token SBOOLL SBOOLR
+%token OR_INTROL OR_INTROR
+%token AND_INTRO
+%token EQ_REFL
+%token EXIST
 
+%token APP ABS
+
+%left APP
+%left ABS
+%left LPARAN LBRACE LSQ
+%right PROD
 %nonassoc SUBTYPE
-%left QUANTIFY
-%left PROP_OR
 %left PROP_AND
-%left GENERIC_TYPE
-%right ARROW
+%left PROP_OR
+%right FORALL ARROW 
+%nonassoc DOT
 %nonassoc EQ
 %right COMMA
-%left LPARAN LBRACE LSQ
+$nonassoc TYPE_HINT
 
 %start lambda_term
 %type <PreIr.term_ast> lambda_term
@@ -69,15 +78,20 @@ const:
 | SMALL { Small }
 | TYPE LSQ INT RSQ { Type $3 }
 term:
+| term EQ term TYPE_HINT term { Eq ($1, $3, $5) }
+| atom_term ARROW term { Forall ("_", $1, $3) }
+| term PROP_AND term { Conjunction ($1, $3) }
+| term PROP_OR term { Disjunction ($1, $3) }
 | LSQ term RSQ AMPERSAND LSQ term RSQ { Sumbool ($2, $6) }
-| app_term { $1 }
-| SLASH VAR COLLON term DOT term { Abs ($2, $4, $6) }
-| SLASH WILDCARD COLLON term DOT term { Abs ("_", $4, $6) }
+| app_term %prec APP { $1 }
+| SLASH VAR COLLON term DOT term %prec ABS { Abs ($2, $4, $6) }
+| SLASH WILDCARD COLLON term DOT term %prec ABS { Abs ("_", $4, $6) }
 | FORALL VAR COLLON term DOT term { Forall ($2, $4, $6) }
 | FORALL WILDCARD COLLON term DOT term { Forall ("_", $4, $6) }
-| atom_term ARROW term { Forall ("_", $1, $3) }
+| EXISTS VAR COLLON term DOT term { Exists ($2, $4, $6) }
 | atom_term SUBTYPE atom_term { Subtyping ($1, $3) }
 atom_term:
+| EQ_REFL LPARAN term SEMICOLLON term RPARAN { EqRefl ($3, $5) }
 | SUBTRANS LPARAN term SEMICOLLON term SEMICOLLON term SEMICOLLON term SEMICOLLON term RPARAN { SubTrans ($3, $5, $7, $9, $11) }
 | SUBPROD LPARAN term SEMICOLLON term SEMICOLLON term SEMICOLLON term SEMICOLLON term SEMICOLLON term RPARAN { SubProd ($3, $5, $7, $9, $11, $13) }
 | SUBREFL LPARAN term RPARAN { SubRefl $3 }
@@ -94,6 +108,10 @@ atom_term:
 | LBRACE term BAR term RBRACE { Refine ($2, $4) }
 | LPARAN term RPARAN { $2 }
 | LSQ term BAR term RSQ { Sumbool ($2, $4) }
+| EXIST LPARAN term SEMICOLLON term SEMICOLLON term SEMICOLLON term RPARAN { Exist ($3, $5, $7, $9) }
+| OR_INTROL LPARAN term SEMICOLLON term SEMICOLLON term RPARAN { OrIntroL ($3, $5, $7) }
+| OR_INTROR LPARAN term SEMICOLLON term SEMICOLLON term RPARAN { OrIntroR ($3, $5, $7) }
+| AND_INTRO LPARAN term SEMICOLLON term SEMICOLLON term SEMICOLLON term RPARAN { AndIntro ($3, $5, $7, $9) }
 app_term:
 | atom_term { $1 }
 | app_term atom_term { App ($1, $2) }

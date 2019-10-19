@@ -19,7 +19,7 @@ del lambdaLex.cmi
 del lambdaAst.cmo
 del lambdaAst.cmi  
 del reprConversion.cmo
-del reprConversion.cmi 
+del reprConversion.cmi
 del explicitTyping.cmo
 del explicitTyping.cmi
 del common.cmo

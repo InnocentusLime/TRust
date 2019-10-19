@@ -207,6 +207,49 @@ module IrToPreIr = struct
 			let x2' = convert_term_ctx x2 ctx in
 			let x3' = convert_term_ctx x3 ctx in
 			PreIr.SubGen (x1', x2', x3')
+		| Conjunction (x1, x2) ->
+			let x1' = convert_term_ctx x1 ctx in
+			let x2' = convert_term_ctx x2 ctx in
+			PreIr.Conjunction (x1', x2')
+		| Disjunction (x1, x2) ->
+			let x1' = convert_term_ctx x1 ctx in
+			let x2' = convert_term_ctx x2 ctx in
+			PreIr.Disjunction (x1', x2')
+		| OrIntroL (x1, x2, x3) ->
+			let x1' = convert_term_ctx x1 ctx in
+			let x2' = convert_term_ctx x2 ctx in
+			let x3' = convert_term_ctx x3 ctx in
+			PreIr.OrIntroL (x1', x2', x3')
+		| OrIntroR (x1, x2, x3) ->
+			let x1' = convert_term_ctx x1 ctx in
+			let x2' = convert_term_ctx x2 ctx in
+			let x3' = convert_term_ctx x3 ctx in
+			PreIr.OrIntroR (x1', x2', x3')
+		| AndIntro (x1, x2, x3, x4) ->
+			let x1' = convert_term_ctx x1 ctx in
+			let x2' = convert_term_ctx x2 ctx in
+			let x3' = convert_term_ctx x3 ctx in
+			let x4' = convert_term_ctx x4 ctx in
+			PreIr.AndIntro (x1', x2', x3', x4')
+		| Eq (x1, x2, x3) ->
+			let x1' = convert_term_ctx x1 ctx in
+			let x2' = convert_term_ctx x2 ctx in
+			let x3' = convert_term_ctx x3 ctx in
+			PreIr.Eq (x1', x2', x3')
+		| EqRefl (x1, x2) -> 
+			let x1' = convert_term_ctx x1 ctx in
+			let x2' = convert_term_ctx x2 ctx in
+			PreIr.EqRefl (x1', x2')
+		| Exists (v, x1, x2) ->
+			let x1' = convert_term_ctx x1 ctx in
+			let x2' = convert_term_ctx x2 (push ctx v x1) in
+			PreIr.Exists (!v, x1', x2')
+		| Exist (x1, x2, x3, x4) ->
+			let x1' = convert_term_ctx x1 ctx in
+			let x2' = convert_term_ctx x2 ctx in
+			let x3' = convert_term_ctx x3 ctx in
+			let x4' = convert_term_ctx x4 ctx in
+			PreIr.Exist (x1', x2', x3', x4')
 
 	let convert_term t = convert_term_ctx t { typing_ctx = create_empty_context (); usage = Hashtbl.create 0 }
 end
@@ -214,7 +257,7 @@ end
 module PreIrToStr = struct
 	open PreIr
 
-	let rec convert_term t =
+let rec convert_term t =
 		match t with
 		| NatO -> "O"
 		| NatSucc -> "S"
@@ -247,7 +290,16 @@ module PreIrToStr = struct
 		| SBLeft (x1, x2) -> "sboolL(" ^ (convert_term x1) ^ "; " ^ (convert_term x2) ^ ")"
 		| SBRight (x1, x2) -> "sboolR(" ^ (convert_term x1) ^ "; " ^ (convert_term x2) ^ ")"
 		| SumboolRec (x1, x2, x3, x4, x5, x6) -> "sboolRec(" ^ (convert_term x1) ^ "; " ^ (convert_term x2) ^ "; " ^ (convert_term x3) ^ "; " ^ (convert_term x4) ^ "; " ^ convert_term x5 ^ "; " ^ convert_term x6 ^ ")"
-		| Subtyping (x1, x2) -> (convert_term x1) ^ " <: " ^ (convert_term x2) 
+		| Subtyping (x1, x2) -> (convert_term x1) ^ " <: " ^ (convert_term x2)
+		| Conjunction (x1, x2) -> "(" ^ convert_term x1 ^ " /\\ " ^ convert_term x2 ^ ")"
+		| Disjunction (x1, x2) -> "(" ^ convert_term x1 ^ " \\/ " ^ convert_term x2 ^ ")"  
+		| OrIntroL (x1, x2, x3) -> "or_introl(" ^ convert_term x1 ^ "; " ^ convert_term x2 ^ "; " ^ convert_term x3 ^ ")" 
+		| OrIntroR (x1, x2, x3) -> "or_intror(" ^ convert_term x1 ^ "; " ^ convert_term x2 ^ "; " ^ convert_term x3 ^ ")" 
+		| AndIntro (x1, x2, x3, x4) -> "and_intro(" ^ convert_term x1 ^ "; " ^ convert_term x2 ^ "; " ^ convert_term x3 ^ "; " ^ convert_term x4 ^ ")"
+		| Eq (x1, x2, x3) -> "(" ^ convert_term x1 ^ " == " ^ convert_term x2 ^ " :> " ^ convert_term x3 ^ ")"
+		| EqRefl (x1, x2) -> "eq_refl(" ^ convert_term x1 ^ "; " ^ convert_term x2 ^ ")"
+		| Exists (v, x1, x2) -> "(exists " ^ v ^ " : " ^ convert_term x1 ^ "." ^ convert_term x2 ^ ")"
+		| Exist (x1, x2, x3, x4) -> "exist(" ^ convert_term x1 ^ "; " ^ convert_term x2 ^ "; " ^ convert_term x3 ^ "; " ^ convert_term x4 ^ ")" 
 end
 
 
@@ -311,6 +363,16 @@ module PreIrToIr = struct
 		| NatRec (x1, x2, x3, x4) -> Ir.NatRec (convert_term_ctx x1 ctx, convert_term_ctx x2 ctx, convert_term_ctx x3 ctx, convert_term_ctx x4 ctx)
 		| BoolRec (x1, x2, x3, x4) -> Ir.BoolRec (convert_term_ctx x1 ctx, convert_term_ctx x2 ctx, convert_term_ctx x3 ctx, convert_term_ctx x4 ctx)
 		| SumboolRec (x1, x2, x3, x4, x5, x6) -> Ir.SumboolRec (convert_term_ctx x1 ctx, convert_term_ctx x2 ctx, convert_term_ctx x3 ctx, convert_term_ctx x4 ctx, convert_term_ctx x5 ctx, convert_term_ctx x6 ctx)
+
+		| Conjunction (x1, x2) -> Ir.Conjunction (convert_term_ctx x1 ctx, convert_term_ctx x2 ctx)
+		| Disjunction (x1, x2) -> Ir.Disjunction (convert_term_ctx x1 ctx, convert_term_ctx x2 ctx)
+		| OrIntroL (x1, x2, x3) -> Ir.OrIntroL (convert_term_ctx x1 ctx, convert_term_ctx x2 ctx, convert_term_ctx x3 ctx)
+		| OrIntroR (x1, x2, x3) -> Ir.OrIntroR (convert_term_ctx x1 ctx, convert_term_ctx x2 ctx, convert_term_ctx x3 ctx)
+		| AndIntro (x1, x2, x3, x4) -> Ir.AndIntro (convert_term_ctx x1 ctx, convert_term_ctx x2 ctx, convert_term_ctx x3 ctx, convert_term_ctx x4 ctx)
+		| Eq (x1, x2, x3) -> Ir.Eq (convert_term_ctx x1 ctx, convert_term_ctx x2 ctx, convert_term_ctx x3 ctx)
+		| EqRefl (x1, x2) -> Ir.EqRefl (convert_term_ctx x1 ctx, convert_term_ctx x2 ctx)
+		| Exists (v, x1, x2) -> Ir.Exists (ref v, convert_term_ctx x1 ctx, convert_term_ctx x2 (add_var v ctx))
+		| Exist (x1, x2, x3, x4) -> Ir.Exist (convert_term_ctx x1 ctx, convert_term_ctx x2 ctx, convert_term_ctx x3 ctx, convert_term_ctx x4 ctx) 
 
 	let convert_term t = convert_term_ctx t (create_empty_context ())
 end

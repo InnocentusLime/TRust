@@ -56,6 +56,13 @@ type token =
   | AMPERSAND
   | SBOOLL
   | SBOOLR
+  | OR_INTROL
+  | OR_INTROR
+  | AND_INTRO
+  | EQ_REFL
+  | EXIST
+  | APP
+  | ABS
 
 val lambda_term :
   (Lexing.lexbuf  -> token) -> Lexing.lexbuf -> PreIr.term_ast

@@ -30,6 +30,11 @@
 			Hashtbl.add temp "refl" SUBREFL;
 			Hashtbl.add temp "sboolL" SBOOLL;
 			Hashtbl.add temp "sboolR" SBOOLR;
+			Hashtbl.add temp "or_introl" OR_INTROL;
+			Hashtbl.add temp "or_intror" OR_INTROR;
+			Hashtbl.add temp "and_intro" AND_INTRO;
+			Hashtbl.add temp "eq_refl" EQ_REFL;
+			Hashtbl.add temp "exist" EXIST;
 			temp
 		)
 	);;
@@ -43,7 +48,7 @@ let alpha_num  = letter | number
 let space = ['\t' ' ']
 let newline = ['\r' '\n']
 
-let ident = (letter (alpha_num*)) | ('_' (alpha_num+))
+let ident = letter (alpha_num | '_')*
 
 rule lex =
 parse

@@ -39,14 +39,14 @@ let solve_nat_rec_problem n t_choice t_choice_t zero_t step_t n_t =
 			Nat, 
 			Forall (
 				ref "_", 
-				App (lift1 t_choice, Var 0), 
-				App (lift1 t_choice, App (NatSucc, Var 0))
+				App (lift t_choice 0 1, Var 0), 
+				App (lift t_choice 0 2, App (NatSucc, Var 1))
 			)
 		)
 	in
 	if 
-		eq_terms zero_t (find_normal_form base) 
-		&& eq_terms step_t (find_normal_form step)
+		beta_eq zero_t base
+		&& beta_eq step_t step
 	then 
 		match (t_choice_t, n_t) with
 		| (Forall (_, Nat, Type 1), Nat) -> Some (App (t_choice, n))
@@ -55,18 +55,18 @@ let solve_nat_rec_problem n t_choice t_choice_t zero_t step_t n_t =
 		| _ -> None
 	else None
 
-let solve_bool_rec_problem t_choice t_choice_t false_t true_t b_t =
+let solve_bool_rec_problem b t_choice t_choice_t false_t true_t b_t =
 	let f = App (t_choice, BoolFalse)
 	and t = App (t_choice, BoolTrue)
 	in
 	if 
-		eq_terms false_t (find_normal_form f) 
-		&& eq_terms true_t (find_normal_form t)
+		beta_eq false_t f 
+		&& beta_eq true_t t
 	then 
 		match (t_choice_t, b_t) with
-		| (Forall (_, Bool, Type 1), Bool) -> Some false_t
-		| (Forall (_, Bool, Prop), Bool) -> Some false_t
-		| (Forall (_, Bool, Small), Bool) -> Some false_t 
+		| (Forall (_, Bool, Type 1), Bool) -> Some (App (t_choice, b))
+		| (Forall (_, Bool, Prop), Bool) -> Some (App (t_choice, b))
+		| (Forall (_, Bool, Small), Bool) -> Some (App (t_choice, b)) 
 		| _ -> None
 	else None
 
@@ -357,13 +357,13 @@ let rec typecheck t ctx =
 		typecheck x2 ctx >>= fun x2_type ->
 		typecheck x3 ctx >>= fun x3_type ->
 		typecheck x4 ctx >>= fun x4_type ->
-		solve_nat_rec_problem x4 x1 (find_normal_form x1_type) (find_normal_form x2_type) (find_normal_form x3_type) (find_normal_form x4_type)
+		solve_nat_rec_problem x4 x1 x1_type x2_type x3_type x4_type
 	| BoolRec (x1, x2, x3, x4) ->
 		typecheck x1 ctx >>= fun x1_type ->
 		typecheck x2 ctx >>= fun x2_type ->
 		typecheck x3 ctx >>= fun x3_type ->
 		typecheck x4 ctx >>= fun x4_type ->
-		solve_bool_rec_problem x1 (find_normal_form x1_type) (find_normal_form x2_type) (find_normal_form x3_type) (find_normal_form x4_type)
+		solve_bool_rec_problem x4 x1 x1_type x2_type x3_type x4_type
 	| Type x -> Some (Type (x + 1))
 	| Small -> Some (Type 1)
 	| Prop -> Some (Type 1)

@@ -1,5 +1,6 @@
 Require Import Term.
-Require Import Typing.
+Require Import Context.
+Require Import Base_Typing.
 
 Theorem wf_var_cases : forall (ctx : context),
     WF ctx ->

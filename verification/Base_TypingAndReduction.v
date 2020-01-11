@@ -2,11 +2,12 @@
 Require List.
 Require Import Term.
 Require Import String.
-Require Import Typing.
+Require Import Context.
 Require Import Relations.
+Require Import Base_Typing.
 Require Import TermReduction.
-Require Import InversionOfTyping.
-Require Import ContextManipulation.
+Require Import Base_InversionOfTyping.
+Require Import Base_ContextManipulation.
 
 Ltac subst_lemma_abs_like_goal SUBST_VALUE_TYPING ARG_TYPE_TYPING BODY_TYPING ARG_NAME SUBST_VALUE_NAME LEFT_PART RIGHT_PART SUBST_VALUE SUBST_VALUE_TYPE ARG_TYPE TYPING_RULE :=
     assert (

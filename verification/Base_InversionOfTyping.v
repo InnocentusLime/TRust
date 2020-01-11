@@ -1,8 +1,9 @@
 Require List.
 Require Import Term.
 Require Import String.
-Require Import Typing.
+Require Import Context.
 Require Import Relations.
+Require Import Base_Typing.
 Require Import TermReduction.
 
 Lemma abs_typing : forall (ctx : context) (str : string) (arg_type body : term),

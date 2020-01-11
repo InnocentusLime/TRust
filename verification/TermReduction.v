@@ -93,6 +93,19 @@ Inductive small_red : relation term :=
     forall res : term,
     (App (App step num) (NatRec type_choice terminate step num) =a res) ->
     (NatRec type_choice terminate step (App NatSucc num) ->b res)
+
+| RedRefineL : 
+    forall l l' r : term, 
+    forall res : term,
+    (l ->b l') -> 
+    (Refine l' r =a res) -> 
+    (Refine l r ->b res)
+| RedRefineR :
+    forall l r r' : term, 
+    forall res : term,
+    (r ->b r') -> 
+    (Refine l r' =a res) ->
+    (Refine l r ->b res)
 where "x ->b y" := (small_red x y).
 
 (*
@@ -176,6 +189,22 @@ Proof.
     apply NatRecStep; transitivity (App (App step num) (NatRec type_choice terminate step num)).
     inversion_clear H4; repeat split; symmetry; assumption.
     assumption.
+
+    intros.
+    destruct l'0; try easy.
+    set (H2 := IHsmall_red l'0_1 (proj1 H1)).
+    apply (RedRefineL l'0_1 l' l'0_2); try easy.
+    transitivity (Refine l' r).
+    simpl; split; reflexivity || (symmetry; apply H1).
+    assumption.
+
+    intros.
+    destruct l'; try easy.
+    set (H2 := IHsmall_red l'2 (proj2 H1)).
+    apply (RedRefineR l'1 l'2 r'); try easy.
+    transitivity (Refine l r').
+    simpl; split; (symmetry; apply H1) || reflexivity.
+    assumption.
 Qed.
 
 (*
@@ -221,6 +250,14 @@ Proof.
     transitivity res; assumption.
 
     apply NatRecStep.
+    transitivity res; assumption.
+
+    apply (RedRefineL _ l').
+    assumption.
+    transitivity res; assumption.
+
+    apply (RedRefineR _ _ r'0).    
+    assumption.
     transitivity res; assumption.
 Qed.
 
@@ -387,6 +424,16 @@ Proof.
     intros; simpl.
     apply (NatRecStep (lift type_choice c d) (lift step c d) (lift terminate c d) (lift num c d)).
     apply (lifting_respects_alpha_eq _ _ _ _ H).
+
+    intros; simpl.
+    apply (RedRefineL (lift l c d) (lift l' c d) (lift r c d)).
+    apply IHsmall_red.
+    apply (lifting_respects_alpha_eq _ _ _ _ H0).
+
+    intros; simpl.
+    apply (RedRefineR (lift l c d) (lift r c d) (lift r' c d)).
+    apply IHsmall_red.
+    apply (lifting_respects_alpha_eq _ _ _ _ H0).
 Qed.
 
 (* Lifting respects beta eq *)
@@ -521,6 +568,16 @@ Proof.
 
     apply NatRecStep.
     apply (lowering_respects_alpha_eq _ _ _ _ H).
+
+    apply (RedRefineL _ (lower l' c d)).
+    apply IHsmall_red.
+    intuition.
+    apply (lowering_respects_alpha_eq _ _ _ _ H0).
+
+    apply (RedRefineR _ _ (lower r' c d)).
+    apply IHsmall_red.
+    intuition.
+    apply (lowering_respects_alpha_eq _ _ _ _ H0).
 Qed.
 
 (* Substitution respects one step *)
@@ -599,6 +656,20 @@ Proof.
     apply NatRecStep.
     apply (subst_respects_alpha_eq (App (App step num) (NatRec type_choice terminate step num)) res N N).
     exact H.
+    reflexivity.
+
+    simpl; intros.
+    apply (RedRefineL _ (subst l' v N)).
+    apply IHsmall_red.
+    apply (subst_respects_alpha_eq (Refine l' r) res N N).
+    exact H0.
+    reflexivity.
+
+    simpl; intros.
+    apply (RedRefineR _ _ (subst r' v N)).
+    apply IHsmall_red.
+    apply (subst_respects_alpha_eq (Refine l r') res N N).
+    exact H0.
     reflexivity.
 Qed.
 

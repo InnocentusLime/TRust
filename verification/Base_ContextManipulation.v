@@ -5,11 +5,12 @@
 Require List.
 Require Import Term.
 Require Import String.
-Require Import Typing.
+Require Import Context.
 Require Import Relations.
-Require Import WFContext.
 Require Import ListLemmas.
+Require Import Base_Typing.
 Require Import TermReduction.
+Require Import Base_WFContext.
 
 (*
     This is a module for abusing dependent

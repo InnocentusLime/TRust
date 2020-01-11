@@ -8,11 +8,18 @@
     https://en.wikipedia.org/wiki/De_Bruijn_index
 *)
 
+Require Import Omega.
 Require Import Setoid.
 Require Import String.
 Require Import PeanoNat.
 Require Import Peano_dec.
 Require Import Relations.
+
+(*
+    This file would benefit LARGELY with shorting. The recipe for that:
+    1. use more automation (tauto, omega)
+    2. use the decidable eq and lt instead of eqb and ltb
+*)
 
 (* A useful logical lemma *)
 Lemma logic_or_impl : forall (A B C D : Prop), (A -> C) -> (B -> D) -> (A \/ B -> C \/ D).
@@ -44,6 +51,7 @@ Inductive term : Set :=
 | PropKind : term
 | TypeKind : nat -> term
 | Forall : string -> term -> term -> term
+| Refine : term -> term -> term
 .
 
 Notation "x ===> y" := (Forall "_"%string x y) (at level 80, right associativity).
@@ -60,11 +68,12 @@ Fixpoint lift (t : term) (c : nat) (d : nat) : term :=
     | NatRec x1 x2 x3 x4 => NatRec (lift x1 c d) (lift x2 c d) (lift x3 c d) (lift x4 c d)
     | App l r => App (lift l c d) (lift r c d)
     | Abs str typ body => Abs str (lift typ c d) (lift body (c + 1) d)
-    | Var x => if x <? c then Var x else Var (x + d)
+    | Var x => if x <? c then Var x else Var (x + d) (* TODO use `lt_dec` *)
     | SmallKind => SmallKind
     | PropKind => PropKind
     | TypeKind x => TypeKind x
     | Forall str typ body => Forall str (lift typ c d) (lift body (c + 1) d)
+    | Refine x1 x2 => Refine (lift x1 c d) (lift x2 c d)
     end
 .
 
@@ -80,11 +89,12 @@ Fixpoint lower (t : term) (c : nat) (d : nat) : term :=
     | NatRec x1 x2 x3 x4 => NatRec (lower x1 c d) (lower x2 c d) (lower x3 c d) (lower x4 c d)
     | App l r => App (lower l c d) (lower r c d)
     | Abs str typ body => Abs str (lower typ c d) (lower body (c + 1) d)
-    | Var x => if x <? c then Var x else Var (x - d)
+    | Var x => if x <? c then Var x else Var (x - d) (* TODO use `lt_dec` *)
     | SmallKind => SmallKind
     | PropKind => PropKind
     | TypeKind x => TypeKind x
     | Forall str typ body => Forall str (lower typ c d) (lower body (c + 1) d)
+    | Refine x1 x2 => Refine (lower x1 c d) (lower x2 c d)
     end
 .
 
@@ -104,11 +114,12 @@ Fixpoint subst (t : term) (v : nat) (n : term) : term :=
     | NatRec x1 x2 x3 x4 => NatRec (subst x1 v n) (subst x2 v n) (subst x3 v n) (subst x4 v n)
     | App l r => App (subst l v n) (subst r v n)
     | Abs str typ body => Abs str (subst typ v n) (subst body (v + 1) (lift1 n))
-    | Var v' => if v =? v' then n else Var v'
+    | Var v' => if v =? v' then n else Var v' (* TODO use `eq_dec` dec *)
     | SmallKind => SmallKind
     | PropKind => PropKind
     | TypeKind x => TypeKind x
     | Forall str typ body => Forall str (subst typ v n) (subst body (v + 1) (lift1 n))
+    | Refine x1 x2 => Refine (subst x1 v n) (subst x2 v n)
     end
 .
 
@@ -136,6 +147,7 @@ Fixpoint term_eq (l r : term) : Prop :=
     | PropKind, PropKind => True
     | TypeKind x, TypeKind y => x = y
     | Forall _ x1 x2, Forall _ y1 y2 => term_eq x1 y1 /\ term_eq x2 y2
+    | Refine x1 x2, Refine y1 y2 => term_eq x1 y1 /\ term_eq x2 y2
     | _, _ => False
     end
 .
@@ -385,6 +397,7 @@ Fixpoint var_occurs (t : term) (n : nat) : Prop :=
     | PropKind => False
     | TypeKind _ => False
     | Forall _ typ body => (var_occurs typ n) \/ (var_occurs body (S n))
+    | Refine x1 x2 => (var_occurs x1 n) \/ (var_occurs x2 n)
     end
 .
 
@@ -796,6 +809,13 @@ Proof.
     intros.
     right; exact (le_n_S _ _ H2).
     simpl in H; apply H; auto.
+
+    elim (IHt2 c d); elim (IHt1 c d); intros.
+    exists (Refine x x0); subst t1; subst t2; reflexivity.
+    simpl in H.
+    auto.
+    simpl in H; auto.
+    simpl in H; auto.
 Qed.
 
 (*
@@ -804,265 +824,58 @@ Qed.
 Theorem lifting_respects_occurance : forall (t : term) (c d v : nat),
     var_occurs t v 
     <->
-    (v < c -> var_occurs (lift t c d) v) /\ (c <= v -> var_occurs (lift t c d) (v + d))
+    (
+        if (Compare_dec.lt_dec v c) then var_occurs (lift t c d) v
+        else var_occurs (lift t c d) (v + d)
+    )
 .
 Proof.
-    intro; induction t; intros; split; 
-    try (
-        (solve [easy || (destruct (Nat.lt_ge_cases v c); intro H0; destruct H0; auto)]) || 
-        (
-            split;
-            intro;
-            simpl; simpl in H;
-            repeat (
-                destruct H || 
-                (set (S1 := proj1 (proj1 (IHt1 c d v) H)); set (S2 := proj2 (proj1 (IHt1 c d v) H)); intuition) ||
-                (set (S1 := proj1 (proj1 (IHt2 c d v) H)); set (S2 := proj2 (proj1 (IHt2 c d v) H)); intuition) ||
-                (set (S1 := proj1 (proj1 (IHt3 c d v) H)); set (S2 := proj2 (proj1 (IHt3 c d v) H)); intuition) ||
-                (set (S1 := proj1 (proj1 (IHt4 c d v) H)); set (S2 := proj2 (proj1 (IHt4 c d v) H)); intuition)
-            )
-        )
+    intro t; induction t; try (
+        intros c d v;
+        try generalize (IHt4 c d v);
+        try generalize (IHt3 c d v); 
+        try generalize (IHt2 c d v); 
+        try generalize (IHt1 c d v); 
+        set (H := Compare_dec.lt_dec v c);
+        simpl; destruct H; tauto
     ).
 
-    intro H.
-    inversion_clear H.
+    intros c d v.
+    generalize (IHt2 (S c) d (S v)).
+    generalize (IHt1 c d v).
+    set (H := Compare_dec.lt_dec v c).
+    simpl; rewrite PeanoNat.Nat.add_1_r; destruct H.
+    assert (S v < S c) by omega.
+    destruct (lt_dec (S v) (S c)); tauto.
+    assert (~ S v < S c) by omega.
+    destruct (lt_dec (S v) (S c)); tauto.
+
+    intros c d v.
     simpl.
-    destruct (Nat.lt_ge_cases v c).
+    split.
+    destruct (lt_dec v c).
+    intros; subst n; now rewrite (proj2 (PeanoNat.Nat.ltb_lt v c) l).
+    apply not_lt in n0; unfold ge in n0.
+    intros; subst n; now rewrite (proj2 (PeanoNat.Nat.ltb_ge v c) n0).
+    destruct (lt_dec v c).
+    case_eq (n <? c); intros.
+    easy.
+    simpl in H0; apply PeanoNat.Nat.ltb_ge in H.
+    exfalso; omega.
+    case_eq (n <? c); intros.
+    simpl in H0; apply PeanoNat.Nat.ltb_lt in H.
+    exfalso; omega.
+    simpl in H0; omega.
 
-    set (H2 := H0 H).
-    repeat (destruct H2).
-
-    assert (var_occurs t1 v); auto.
-    apply (proj2 (IHt1 c d v)).
-    split; try easy.
-    intro F; exfalso.
-    exact (Lt.lt_not_le _ _ H F).
-
-    assert (var_occurs t2 v); auto.
-    apply (proj2 (IHt2 c d v)).
-    split; try easy.
-    intro F; exfalso.
-    exact (Lt.lt_not_le _ _ H F).
-
-    assert (var_occurs t3 v); auto.
-    apply (proj2 (IHt3 c d v)).
-    split; try easy.
-    intro F; exfalso.
-    exact (Lt.lt_not_le _ _ H F).
-
-    assert (var_occurs t4 v); auto.
-    apply (proj2 (IHt4 c d v)).
-    split; try easy.
-    intro F; exfalso.
-    exact (Lt.lt_not_le _ _ H F).
-
-    set (H2 := H1 H).
-    repeat (destruct H2).
-
-    assert (var_occurs t1 v); auto.
-    apply (proj2 (IHt1 c d v)).
-    split; try easy.
-    intro F; exfalso.
-    exact (Lt.le_not_lt _ _ H F).
-
-    assert (var_occurs t2 v); auto.
-    apply (proj2 (IHt2 c d v)).
-    split; try easy.
-    intro F; exfalso.
-    exact (Lt.le_not_lt _ _ H F).
-
-    assert (var_occurs t3 v); auto.
-    apply (proj2 (IHt3 c d v)).
-    split; try easy.
-    intro F; exfalso.
-    exact (Lt.le_not_lt _ _ H F).
-
-    assert (var_occurs t4 v); auto.
-    apply (proj2 (IHt4 c d v)).
-    split; try easy.
-    intro F; exfalso.
-    exact (Lt.le_not_lt _ _ H F).
-
-
-
-
-
-    intro H.
-    inversion_clear H.
-    simpl.
-    destruct (Nat.lt_ge_cases v c).
-
-    set (H2 := H0 H).
-    repeat (destruct H2).
-
-    assert (var_occurs t1 v); auto.
-    apply (proj2 (IHt1 c d v)).
-    split; try easy.
-    intro F; exfalso.
-    exact (Lt.lt_not_le _ _ H F).
-
-    assert (var_occurs t2 v); auto.
-    apply (proj2 (IHt2 c d v)).
-    split; try easy.
-    intro F; exfalso.
-    exact (Lt.lt_not_le _ _ H F).
-
-    set (H2 := H1 H).
-    repeat (destruct H2).
-
-    assert (var_occurs t1 v); auto.
-    apply (proj2 (IHt1 c d v)).
-    split; try easy.
-    intro F; exfalso.
-    exact (Lt.le_not_lt _ _ H F).
-
-    assert (var_occurs t2 v); auto.
-    apply (proj2 (IHt2 c d v)).
-    split; try easy.
-    intro F; exfalso.
-    exact (Lt.le_not_lt _ _ H F).
-
-
-    right.
-    rewrite Nat.add_1_r.
-    refine (proj1 (proj1 (IHt2 _ _ _) H) _).
-    exact (Lt.lt_n_S _ _ H0).
-    right.
-    rewrite Nat.add_1_r.
-    refine (proj2 (proj1 (IHt2 _ _ _) H) _).
-    exact (le_n_S _ _ H0).
-
-    intro H.
-    inversion_clear H.
-    simpl.
-    destruct (Nat.lt_ge_cases v c).
-
-    set (H2 := H0 H).
-    repeat (destruct H2).
-
-    assert (var_occurs t1 v); auto.
-    apply (proj2 (IHt1 c d v)).
-    split; try easy.
-    intro F; exfalso.
-    exact (Lt.lt_not_le _ _ H F).
-
-    rewrite Nat.add_1_r in H2.
-    assert (var_occurs t2 (S v)); auto.
-    apply (proj2 (IHt2 (S c) d _)).
-    split; try easy.
-    intro F; exfalso.
-    apply Le.le_S_n in F.
-    exact (Lt.lt_not_le _ _ H F).
-
-    set (H2 := H1 H).
-    repeat (destruct H2).
-
-    assert (var_occurs t1 v); auto.
-    apply (proj2 (IHt1 c d v)).
-    split; try easy.
-    intro F; exfalso.
-    exact (Lt.le_not_lt _ _ H F).
-
-    rewrite Nat.add_1_r in H2.
-    assert (S (v + d) = S v + d) by easy.
-    rewrite H3 in H2.
-    assert (var_occurs t2 (S v)); auto.
-    apply (proj2 (IHt2 (S c) d (S v))).
-    split; try easy.
-    intro F; exfalso.
-    apply Lt.lt_S_n in F.
-    exact (Lt.le_not_lt _ _ H F).
-
-    assert (n <? c = true).
-    now apply Nat.ltb_lt.
-    now rewrite H.
-
-    assert (n <? c = false).
-    now apply Nat.ltb_ge.
-    now rewrite H.
-
-    intro H.
-    destruct (Nat.lt_ge_cases v c).
-    set (H1 := proj1 H H0).
-    simpl in H1.
-    case_eq (n <? c); intro.
-    rewrite H2 in H1.
-    exact H1.
-    rewrite H2 in H1.
-    simpl in H1.
-    subst v.
-    apply Nat.ltb_ge in H2.
-    assert (n < c).
-    apply (Nat.le_lt_trans n (n + d) c).
-    apply Nat.le_add_r.
-    assumption.
-    exfalso.
-    exact (Lt.le_not_lt _ _ H2 H1).
-    set (H1 := proj2 H H0).
-    simpl in H1.
-    case_eq (n <? c); intro.
-    rewrite H2 in H1.
-    simpl in H1; subst n.
-    apply Nat.ltb_lt in H2.
-    exfalso.
-    assert (v < c).
-    apply (Nat.le_lt_trans v (v + d) c).
-    apply Nat.le_add_r.
-    assumption.
-    exact (Lt.le_not_lt _ _ H0 H1).
-    rewrite H2 in H1.
-    simpl in H1; simpl.
-    now apply (Nat.add_cancel_r) in H1.
-
-    right.
-    rewrite Nat.add_1_r.
-    refine (proj1 (proj1 (IHt2 _ _ _) H) _).
-    exact (Lt.lt_n_S _ _ H0).
-    right.
-    rewrite Nat.add_1_r.
-    refine (proj2 (proj1 (IHt2 _ _ _) H) _).
-    exact (le_n_S _ _ H0).
-
-    intro H.
-    inversion_clear H.
-    simpl.
-    destruct (Nat.lt_ge_cases v c).
-
-    set (H2 := H0 H).
-    repeat (destruct H2).
-
-    assert (var_occurs t1 v); auto.
-    apply (proj2 (IHt1 c d v)).
-    split; try easy.
-    intro F; exfalso.
-    exact (Lt.lt_not_le _ _ H F).
-
-    rewrite Nat.add_1_r in H2.
-    assert (var_occurs t2 (S v)); auto.
-    apply (proj2 (IHt2 (S c) d _)).
-    split; try easy.
-    intro F; exfalso.
-    apply Le.le_S_n in F.
-    exact (Lt.lt_not_le _ _ H F).
-
-    set (H2 := H1 H).
-    repeat (destruct H2).
-
-    assert (var_occurs t1 v); auto.
-    apply (proj2 (IHt1 c d v)).
-    split; try easy.
-    intro F; exfalso.
-    exact (Lt.le_not_lt _ _ H F).
-
-    rewrite Nat.add_1_r in H2.
-    assert (S (v + d) = S v + d) by easy.
-    rewrite H3 in H2.
-    assert (var_occurs t2 (S v)); auto.
-    apply (proj2 (IHt2 (S c) d (S v))).
-    split; try easy.
-    intro F; exfalso.
-    apply Lt.lt_S_n in F.
-    exact (Lt.le_not_lt _ _ H F).
+    intros c d v.
+    generalize (IHt2 (S c) d (S v)).
+    generalize (IHt1 c d v).
+    set (H := Compare_dec.lt_dec v c).
+    simpl; rewrite PeanoNat.Nat.add_1_r; destruct H.
+    assert (S v < S c) by omega.
+    destruct (lt_dec (S v) (S c)); tauto.
+    assert (~ S v < S c) by omega.
+    destruct (lt_dec (S v) (S c)); tauto.
 Qed.
 
 (* Weaker version *)
@@ -1072,15 +885,10 @@ Corollary lifting_respects_occurance_l : forall (t : term) (c d v : nat),
 .
 Proof.
     intros.
-    split.
-    intros.
-    apply lifting_respects_occurance; easy.
-    intros.
-    refine (proj2 (lifting_respects_occurance t c d v) (conj (fun _ => H0) _)).
-    intros.
-    exfalso.
-    exact (Lt.le_not_lt _ _ H1 H).
+    generalize (lifting_respects_occurance t c d v).
+    destruct (lt_dec v c); easy.
 Qed.
+
 
 (* Another weaker version *)
 Corollary lifting_respects_occurance_r : forall (t : term) (c d v : nat),
@@ -1089,14 +897,8 @@ Corollary lifting_respects_occurance_r : forall (t : term) (c d v : nat),
 .
 Proof.
     intros.
-    split.
-    intros.
-    apply lifting_respects_occurance; easy.
-    intros.
-    refine (proj2 (lifting_respects_occurance t c d v) (conj _ (fun _ => H0))).
-    intros.
-    exfalso.
-    exact (Lt.le_not_lt _ _ H H1).
+    generalize (lifting_respects_occurance t c d v).
+    destruct (lt_dec v c); easy || omega.
 Qed.
 
 (* A theorem about splitting two substs *)
@@ -1164,6 +966,11 @@ Proof.
     exact (H0 H1).
     apply le_0_n.
     apply le_0_n.
+
+    simpl.
+    rewrite (IHN1_1 v1 v2 _ _ H H0).
+    rewrite (IHN1_2 v1 v2 _ _ H H0).
+    reflexivity.
 Qed.
 
 (*
@@ -1226,6 +1033,12 @@ Proof.
     assumption.
     apply le_0_n.
     exact H0.
+
+    intros.
+    simpl in H0.
+    repeat (destruct H0).
+    now apply (IHt1 v N).
+    now apply (IHt2 v N).
 Qed.
 
 (* `lift t c 0` behaves like `id` *)
@@ -1240,6 +1053,7 @@ Proof.
     destruct (n <? c); try easy.
     now rewrite Nat.add_0_r.
     intro c; simpl; rewrite IHt1; rewrite IHt2; reflexivity.
+    intro c; simpl; rewrite IHt1; rewrite IHt2; reflexivity.
 Qed.
 
 (* A theorem about preservation of a variable *)
@@ -1249,194 +1063,82 @@ Theorem subst_respects_occurance : forall (t N : term) (v1 v2 : nat),
     (var_occurs (subst t v2 N) v1)
 .
 Proof.
-    intro t; induction t; try (solve [tauto]).
-    intros.
-    split.
-    intro H; destruct H.
-    inversion_clear H.
-    simpl in H1; destruct H1.
-    simpl.
-    left.
-    apply IHt1.
-    left; exact (conj H0 H).
-    destruct H.
-    right; left.
-    apply IHt2.
-    left; exact (conj H0 H).
-    destruct H.
-    right; right; left.
-    apply IHt3; left; exact (conj H0 H).
-    right; right; right.
-    apply IHt4; left; exact (conj H0 H).
-    inversion_clear H.
-    simpl in H0; destruct H0.
-    left.
-    apply IHt1; right; exact (conj H H1).
-    destruct H.
-    right; left.
-    apply IHt2; right; exact (conj H H1).
-    destruct H.
-    right; right; left.
-    apply IHt3; right; exact (conj H H1).
-    right; right; right.
-    apply IHt4; right; exact (conj H H1).
-    intros.
-    simpl in H.
-    destruct H.
-    assert (var_occurs N v1 /\ var_occurs t1 v2 \/ var_occurs t1 v1 /\ v1 <> v2) by (now apply IHt1).
-    simpl; destruct H0; (left; tauto) || (right; tauto).
-    destruct H.
-    assert (var_occurs N v1 /\ var_occurs t2 v2 \/ var_occurs t2 v1 /\ v1 <> v2) by (now apply IHt2).
-    simpl; destruct H0; (left; tauto) || (right; tauto).
-    destruct H.
-    assert (var_occurs N v1 /\ var_occurs t3 v2 \/ var_occurs t3 v1 /\ v1 <> v2) by (now apply IHt3).
-    simpl; destruct H0; (left; tauto) || (right; tauto).
-    assert (var_occurs N v1 /\ var_occurs t4 v2 \/ var_occurs t4 v1 /\ v1 <> v2) by (now apply IHt4).
-    simpl; destruct H0; (left; tauto) || (right; tauto).
-    intros.
-    split.
-    intros.
-    destruct H.
-    inversion_clear H.
-    simpl in H1; destruct H1.
-    left; apply IHt1; auto.
-    right; apply IHt2; auto.
-    inversion_clear H.
-    destruct H0.
-    left; apply IHt1; auto.
-    right; apply IHt2; auto.
-    intros.
-    destruct H.
-    assert (var_occurs N v1 /\ var_occurs t1 v2 \/ var_occurs t1 v1 /\ v1 <> v2) by (now apply IHt1).
-    simpl; destruct H0; (left; tauto) || (right; tauto).
-    assert (var_occurs N v1 /\ var_occurs t2 v2 \/ var_occurs t2 v1 /\ v1 <> v2) by (now apply IHt2).
-    simpl; destruct H0; (left; tauto) || (right; tauto).
+    intro t; induction t; 
+    try (solve [(
+        intros;
+        simpl;
+        try generalize (IHt4 N v1 v2);
+        try generalize (IHt3 N v1 v2);
+        try generalize (IHt2 N v1 v2);
+        try generalize (IHt1 N v1 v2);
+        tauto
+    )]).
 
-    intros.
+    simpl; intros.
     split.
     intros.
     destruct H.
-    inversion_clear H.
-    simpl in H1; destruct H1.
-    left; apply IHt1; auto.
-    right; rewrite Nat.add_1_r; apply IHt2.    
-    left.
-    split; try assumption.
-    rewrite <- Nat.add_1_r.
-    unfold lift1; apply lifting_respects_occurance_r.
-    apply le_0_n.
-    assumption.
-    inversion_clear H.
+    destruct H.
     destruct H0.
-    left; apply IHt1; auto.
-    right; apply IHt2.
-    rewrite Nat.add_1_r.
-    rewrite <- Nat.add_1_r at 1.
-    unfold lift1; rewrite <- lifting_respects_occurance_r.
-    right; split; try easy.
-    injection.
-    exact H1.
-    apply le_0_n.
-    intros. 
+    left; apply IHt1; tauto.
+    right; rewrite <- PeanoNat.Nat.add_1_r; apply IHt2.
+    left; simpl.
+    rewrite PeanoNat.Nat.add_1_r; split; try assumption.
+    rewrite <- PeanoNat.Nat.add_1_r; now apply (lifting_respects_occurance_r N 0 1 v1 (le_0_n _)).
+    destruct H.
+    destruct H.
+    left; apply IHt1; tauto.
+    right; rewrite (PeanoNat.Nat.add_1_r v2).
+    apply IHt2.
+    right; split; omega || assumption.
     intros.
     destruct H.
-    assert (var_occurs N v1 /\ var_occurs t1 v2 \/ var_occurs t1 v1 /\ v1 <> v2) by (now apply IHt1).
-    simpl; destruct H0; (left; tauto) || (right; tauto).
-    assert (var_occurs (lift1 N) (S v1) /\ var_occurs t2 (S v2) \/ var_occurs t2 (S v1) /\ (S v1) <> (S v2)).
-    apply IHt2.
-    rewrite Nat.add_1_r in H.
-    exact H.
-    rewrite <- (Nat.add_1_r v1) in H.
-    simpl; destruct H0.
-    left.
-    inversion_clear H0.
-    rewrite <- (Nat.add_1_r v1) in H1.
-    unfold lift1 in H1; apply <- lifting_respects_occurance_r in H1.
-    split; try easy.
-    right; exact H2.
-    apply le_0_n.
-    right.
-    inversion_clear H0.
-    split.
-    right; exact H1.
-    congruence.
+    apply IHt1 in H.
+    tauto.
+    apply IHt2 in H.
+    rewrite <- (PeanoNat.Nat.add_1_r v1) in H at 1.
+    rewrite <- (lifting_respects_occurance_r N 0 1 v1 (le_0_n _)) in H.
+    rewrite PeanoNat.Nat.add_1_r in H.
+    destruct H; try tauto.
+    right; refine (conj (or_intror (proj1 H)) _); omega.
 
-    intros.
+    intros; simpl.
     split; intros.
-    simpl.
+    destruct H; destruct H; subst n.
+    now rewrite (proj2 (PeanoNat.Nat.eqb_eq v2 v2)) by reflexivity.
+    now rewrite (proj2 (PeanoNat.Nat.eqb_neq v2 v1)) by omega.
     case_eq (v2 =? n); intros.
-    destruct H.
-    apply H.
-    inversion_clear H.
-    simpl in H1.
-    apply Nat.eqb_eq in H0.
-    congruence.
-    destruct H.
-    apply Nat.eqb_neq in H0.
-    simpl in H.
-    inversion_clear H.
-    congruence.
-    apply H.
-    simpl in H.
-    case_eq (v2 =? n); intro.
-    rewrite H0 in H.
-    left; auto.
-    simpl.
-    apply Nat.eqb_eq in H0.
-    auto.
-    rewrite H0 in H.
-    right; split; try easy.
-    apply Nat.eqb_neq in H0.
-    congruence.
+    rewrite H0 in H; apply PeanoNat.Nat.eqb_eq in H0; symmetry in H0; left; tauto.
+    rewrite H0 in H; apply PeanoNat.Nat.eqb_neq in H0; right; refine (conj H _).
+    simpl in H; omega.
 
-    intros.
+    simpl; intros.
     split.
     intros.
     destruct H.
-    inversion_clear H.
-    simpl in H1; destruct H1.
-    left; apply IHt1; auto.
-    right; rewrite Nat.add_1_r; apply IHt2.    
-    left.
-    split; try assumption.
-    rewrite <- Nat.add_1_r.
-    unfold lift1; apply lifting_respects_occurance_r.
-    apply le_0_n.
-    assumption.
-    inversion_clear H.
+    destruct H.
     destruct H0.
-    left; apply IHt1; auto.
-    right; apply IHt2.
-    rewrite Nat.add_1_r.
-    rewrite <- Nat.add_1_r at 1.
-    unfold lift1; rewrite <- lifting_respects_occurance_r.
-    right; split; try easy.
-    injection.
-    exact H1.
-    apply le_0_n.
-    intros. 
+    left; apply IHt1; tauto.
+    right; rewrite <- PeanoNat.Nat.add_1_r; apply IHt2.
+    left; simpl.
+    rewrite PeanoNat.Nat.add_1_r; split; try assumption.
+    rewrite <- PeanoNat.Nat.add_1_r; now apply (lifting_respects_occurance_r N 0 1 v1 (le_0_n _)).
+    destruct H.
+    destruct H.
+    left; apply IHt1; tauto.
+    right; rewrite (PeanoNat.Nat.add_1_r v2).
+    apply IHt2.
+    right; split; omega || assumption.
     intros.
     destruct H.
-    assert (var_occurs N v1 /\ var_occurs t1 v2 \/ var_occurs t1 v1 /\ v1 <> v2) by (now apply IHt1).
-    simpl; destruct H0; (left; tauto) || (right; tauto).
-    assert (var_occurs (lift1 N) (S v1) /\ var_occurs t2 (S v2) \/ var_occurs t2 (S v1) /\ (S v1) <> (S v2)).
-    apply IHt2.
-    rewrite Nat.add_1_r in H.
-    exact H.
-    rewrite <- (Nat.add_1_r v1) in H.
-    simpl; destruct H0.
-    left.
-    inversion_clear H0.
-    rewrite <- (Nat.add_1_r v1) in H1.
-    unfold lift1 in H1; apply <- lifting_respects_occurance_r in H1.
-    split; try easy.
-    right; exact H2.
-    apply le_0_n.
-    right.
-    inversion_clear H0.
-    split.
-    right; exact H1.
-    congruence.
+    apply IHt1 in H.
+    tauto.
+    apply IHt2 in H.
+    rewrite <- (PeanoNat.Nat.add_1_r v1) in H at 1.
+    rewrite <- (lifting_respects_occurance_r N 0 1 v1 (le_0_n _)) in H.
+    rewrite PeanoNat.Nat.add_1_r in H.
+    destruct H; try tauto.
+    right; refine (conj (or_intror (proj1 H)) _); omega.
 Qed.
 
 Corollary subst_respects_occurance_l : forall (t N : term) (v1 v2 : nat),
@@ -1553,78 +1255,40 @@ Lemma lift_swap_ex : forall N : term, forall c d p v : nat,
     lift (lift N (d + c) p) c v = lift (lift N c v) (d + v + c) p
 .
 Proof.
-    intro N; induction N; try easy.
-    intros; simpl.
-    rewrite IHN1; rewrite IHN2; rewrite IHN3; rewrite IHN4.
-    reflexivity.
-    intros; simpl.
-    rewrite IHN1; rewrite IHN2.
-    reflexivity.
-    intros; simpl.
-    rewrite IHN1.
-    rewrite <- (PeanoNat.Nat.add_assoc d c 1).
-    rewrite <- (PeanoNat.Nat.add_assoc (d + v) c 1).
-    rewrite IHN2.
-    reflexivity.
-    intros; simpl.
+    intro N; induction N;
+    intros; simpl;
+    try (
+        try rewrite IHN1;
+        try (
+            rewrite IHN2 || 
+            (
+                assert (d + v + c + 1 = d + v + (c + 1)) by omega; assert (d + c + 1 = d + (c + 1)) by omega;  
+                rewrite H; rewrite H0;
+                rewrite IHN2
+            )
+        );
+        try rewrite IHN3;
+        try rewrite IHN4;
+        easy
+    ).
+
     case_eq (n <? c); intros.
-    assert (n <? d + c = true).
-    apply PeanoNat.Nat.ltb_lt.
-    apply PeanoNat.Nat.ltb_lt in H.
-    refine (Nat.lt_le_trans _ _ _ H _).
-    apply Plus.le_plus_r.
+    assert (n <? d + c = true) by (apply PeanoNat.Nat.ltb_lt; apply PeanoNat.Nat.ltb_lt in H; omega).
     rewrite H0.
     simpl.
-    rewrite H.
-    assert (n <? d + v + c = true).
-    apply PeanoNat.Nat.ltb_lt.
-    apply PeanoNat.Nat.ltb_lt in H0.
-    rewrite (PeanoNat.Nat.add_comm d v).
-    refine (Nat.lt_le_trans _ _ _ H0 _).
-    rewrite (PeanoNat.Nat.add_comm v d).
-    rewrite <- PeanoNat.Nat.add_assoc.
-    apply Plus.plus_le_compat_l.
-    apply (Plus.plus_le_compat_r 0).
-    apply le_0_n.
-    rewrite H1.
-    reflexivity.
+    assert (n <? d + v + c = true) by (apply PeanoNat.Nat.ltb_lt; apply PeanoNat.Nat.ltb_lt in H; omega).
+    now (rewrite H; rewrite H1).
+    simpl.
     case_eq (n <? d + c); intros.
-    simpl.
-    rewrite H.
-    assert (n + v <? d + v + c = true).
-    apply PeanoNat.Nat.ltb_lt.
-    apply PeanoNat.Nat.ltb_lt in H0.
-    rewrite (PeanoNat.Nat.add_comm n v); rewrite (PeanoNat.Nat.add_comm d v).
-    rewrite <- PeanoNat.Nat.add_assoc.
-    apply Plus.plus_lt_compat_l.
-    exact H0.
+    assert (n + v <? d + v + c = true) by (apply PeanoNat.Nat.ltb_lt; apply PeanoNat.Nat.ltb_lt in H0; omega).
     rewrite H1.
-    reflexivity.
     simpl.
-    assert (n + p <? c = false).
-    apply PeanoNat.Nat.ltb_ge.
-    apply PeanoNat.Nat.ltb_ge in H.
-    rewrite PeanoNat.Nat.add_comm.
-    refine (Le.le_trans _ _ _ H _).
-    apply Plus.le_plus_r.
-    rewrite H1.
-    assert (n + v <? d + v + c = false).
-    apply PeanoNat.Nat.ltb_ge.
-    apply PeanoNat.Nat.ltb_ge in H0.
-    rewrite (PeanoNat.Nat.add_comm d v); rewrite (PeanoNat.Nat.add_comm n v).
-    rewrite <- PeanoNat.Nat.add_assoc.
-    apply Plus.plus_le_compat_l.
-    exact H0.
-    rewrite H2.
-    rewrite <- PeanoNat.Nat.add_assoc; rewrite (PeanoNat.Nat.add_comm p v); rewrite PeanoNat.Nat.add_assoc.
-    reflexivity.
-    intros.
-    intros; simpl.
-    rewrite IHN1.
-    rewrite <- (PeanoNat.Nat.add_assoc d c 1).
-    rewrite <- (PeanoNat.Nat.add_assoc (d + v) c 1).
-    rewrite IHN2.
-    reflexivity.
+    now rewrite H.
+    simpl.
+    assert (n + v <? d + v + c = false) by (apply PeanoNat.Nat.ltb_ge; apply PeanoNat.Nat.ltb_ge in H0; omega).
+    assert (n + p <? c = false) by (apply PeanoNat.Nat.ltb_ge; apply PeanoNat.Nat.ltb_ge in H; omega).
+    rewrite H2; rewrite H1.
+    assert (n + p + v = n + v + p) by omega; now rewrite H3.
 Qed.
 
 Theorem lift_subst_unfold_alt : forall (t N : term) (c d v : nat),
@@ -1676,7 +1340,11 @@ Proof.
     intro t1; induction t1; intro t2; destruct t2; 
     try (
         easy ||
-        (intros; exfalso; simpl in H; destruct (n <? c); easy)
+        (
+            intros; 
+            exfalso; simpl in H; 
+            destruct (n <? c); easy
+        )
     ).
 
     simpl; intros.
@@ -1734,6 +1402,13 @@ Proof.
     injection H.
     intros.
     subst s0.
+    rewrite (IHt1_1 _ _ _ H1).
+    rewrite (IHt1_2 _ _ _ H0).
+    reflexivity.
+
+    simpl; intros.
+    injection H.
+    intros.
     rewrite (IHt1_1 _ _ _ H1).
     rewrite (IHt1_2 _ _ _ H0).
     reflexivity.
@@ -1988,6 +1663,11 @@ Proof.
     exfalso; exact (PeanoNat.Nat.nle_succ_0 _ H3).
     rewrite Nat.add_shuffle0; rewrite PeanoNat.Nat.add_1_r.
     apply Le.le_n_S; exact (H0 _ (or_intror H2) (Le.le_S_n _ _ H3)).
+
+    simpl.
+    intros.
+    rewrite (IHt1 _ _ _ _ H); intuition.
+    rewrite (IHt2 _ _ _ _ H); intuition.
 Qed.
 
 Theorem lower_swap_ex : forall N : term, forall c d p v : nat, 
@@ -2115,6 +1795,10 @@ Proof.
     rewrite PeanoNat.Nat.add_1_r.
     apply le_n_S.
     exact (H _ (or_intror H0) (le_S_n _ _ H1)).
+
+    simpl; intros.
+    rewrite IHN1; intuition.
+    rewrite IHN2; intuition.
 Qed.
 
 Theorem lowering_and_occurance : forall (t : term) (c d v : nat),
@@ -2182,6 +1866,11 @@ Proof.
     rewrite Nat.add_1_r.
     now apply le_n_S.
     now apply le_S.
+
+    simpl.
+    apply or_iff.
+    now apply IHt1.
+    now apply IHt2.
 Qed.
 
 Theorem lowering_and_occurance_alt : forall (t : term) (c d v : nat),
@@ -2201,6 +1890,7 @@ Proof.
     tauto.
     generalize (IHt4 c _ _ (fun v H' => H v (or_intror (or_intror (or_intror H')))) H1).
     tauto.
+
     simpl; intros.
     destruct H0.
     generalize (IHt1 c _ _ (fun v H' => H v (or_introl H')) H0).
@@ -2257,6 +1947,13 @@ Proof.
     exact (H _ (or_intror H1) H2).
     generalize (IHt2 _ _ _ H1 H0).
     rewrite <- PeanoNat.Nat.succ_lt_mono.
+    tauto.
+    
+    simpl; intros.
+    destruct H0.
+    generalize (IHt1 c _ _ (fun v H' => H v (or_introl H')) H0).
+    tauto.
+    generalize (IHt2 c _ _ (fun v H' => H v (or_intror H')) H0).
     tauto.
 Qed.
 
@@ -2331,6 +2028,11 @@ Proof.
     repeat rewrite PeanoNat.Nat.add_1_r.
     intro H1; apply Le.le_S_n in H1; apply Le.le_n_S.
     intuition.
+
+    simpl; intros.
+    rewrite IHt1 by intuition.
+    rewrite IHt2 by intuition.
+    reflexivity.
 Qed.
 
 Lemma lower_lift_destruct : forall (t : term) (c d : nat),
@@ -2394,6 +2096,11 @@ Proof.
     intros.
     apply Le.le_n_S; apply Le.le_S_n in H1.
     intuition.
+
+    simpl; intros.
+    rewrite IHt1 by intuition.
+    rewrite IHt2 by intuition.
+    reflexivity.
 Qed.
 
 Lemma lower_c_0 : forall (t : term) (c : nat),
@@ -2409,6 +2116,8 @@ Proof.
     now (rewrite IHt1; rewrite IHt2).
     intros; simpl.
     now (destruct (n <? c); try rewrite Nat.sub_0_r).
+    intros; simpl.
+    now (rewrite IHt1; rewrite IHt2).
     intros; simpl.
     now (rewrite IHt1; rewrite IHt2).
 Qed.
@@ -2436,6 +2145,10 @@ Proof.
     intro r; destruct r; try easy.
     simpl.
     intros; congruence.
+
+    intro r; destruct r; try easy.
+    simpl; intros.
+    intuition.
 
     intro r; destruct r; try easy.
     simpl; intros.

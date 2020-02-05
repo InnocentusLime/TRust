@@ -3,9 +3,9 @@
 	let keyword_table = (
 		let temp = Hashtbl.create 2 in
 		(
-			Hashtbl.add temp "natRec" NATREC;
-			Hashtbl.add temp "sumboolRec" SUMBOOLREC;
-			Hashtbl.add temp "boolRec" BOOLREC; 
+			Hashtbl.add temp "nat_rec" NATREC;
+			Hashtbl.add temp "sumbool_rec" SUMBOOLREC;
+			Hashtbl.add temp "bool_rec" BOOLREC; 
 			Hashtbl.add temp "nat" NAT;
 			Hashtbl.add temp "unit" UNIT;
 			Hashtbl.add temp "bool" BOOL;

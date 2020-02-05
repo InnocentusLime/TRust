@@ -13,12 +13,15 @@
 (* Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA *)
 (* 02110-1301 USA                                                     *)
 
+(*
+  A bunch of facts about the list we'll use later.
+  TODO: reconsider if this lib is needed now.
+*)
 
 Require Import Le.
 Require Import Gt.
 Require Export List.
 
-Unset Standard Proposition Elimination Names.
 Global Set Asymmetric Patterns.
 
 Section Listes.
@@ -29,8 +32,9 @@ Section Listes.
 
 
   Inductive In (x : A) : List -> Prop :=
-    | In_hd : forall l : List, In x (x :: l)
-    | In_tl : forall (y : A) (l : List), In x l -> In x (y :: l).
+  | In_hd : forall l : List, In x (x :: l)
+  | In_tl : forall (y : A) (l : List), In x l -> In x (y :: l)
+  .
 
   Hint Resolve In_hd In_tl: coc. 
 

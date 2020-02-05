@@ -13,7 +13,10 @@
 (* Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA *)
 (* 02110-1301 USA                                                     *)
 
-
+(*
+  This is aonther list lib but now it can be filled with list
+  of `Types`... Consider if this lib is still needed too.
+*)
 
 Require Import Arith.
 Require Import MyList.

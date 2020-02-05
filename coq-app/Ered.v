@@ -13,31 +13,37 @@
 (* Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA *)
 (* 02110-1301 USA                                                     *)
 
+(* Reduction for external terms *)
 
 Require Import Termes.
 Require Import Conv.
 
+(*)
+(* One-step reduction for expressions *)
 Inductive Ered1 : term -> term -> Prop :=
-  | Ebeta : forall M N T : term, Ered1 (App (Abs T M) N) (subst N M)
-  | Eabs : forall M T : term, Ered1 (Abs T M) (Abs (Srt prop) M)
-  | Eabs_red_l :
-      forall M M' : term,
-      Ered1 M M' -> forall N : term, Ered1 (Abs M N) (Abs M' N)
-  | Eabs_red_r :
-      forall M M' : term,
-      Ered1 M M' -> forall N : term, Ered1 (Abs N M) (Abs N M')
-  | Eapp_red_l :
-      forall M1 N1 : term,
-      Ered1 M1 N1 -> forall M2 : term, Ered1 (App M1 M2) (App N1 M2)
-  | Eapp_red_r :
-      forall M2 N2 : term,
-      Ered1 M2 N2 -> forall M1 : term, Ered1 (App M1 M2) (App M1 N2)
-  | Eprod_red_l :
-      forall M1 N1 : term,
-      Ered1 M1 N1 -> forall M2 : term, Ered1 (Prod M1 M2) (Prod N1 M2)
-  | Eprod_red_r :
-      forall M2 N2 : term,
-      Ered1 M2 N2 -> forall M1 : term, Ered1 (Prod M1 M2) (Prod M1 N2).
+| Ebeta : forall M N T : term, Ered1 (App (Abs T M) N) (subst N M)
+| Eabs : forall M T : term, Ered1 (Abs T M) (Abs (Srt prop) M)
+| Eabs_red_l :
+  forall M M' : term,
+  Ered1 M M' -> forall N : term, Ered1 (Abs M N) (Abs M' N)
+| Eabs_red_r :
+  forall M M' : term,
+  Ered1 M M' -> forall N : term, Ered1 (Abs N M) (Abs N M')
+| Eapp_red_l :
+  forall M1 N1 : term,
+  Ered1 M1 N1 -> forall M2 : term, Ered1 (App M1 M2) (App N1 M2)
+| Eapp_red_r :
+  forall M2 N2 : term,
+  red1 M2 N2 -> forall M1 : term, Ered1 (App M1 M2) (App M1 N2)
+| Eprod_red_l :
+  forall M1 N1 : term,
+  red1 M1 N1 -> forall M2 : term, Ered1 (Prod M1 M2) (Prod N1 M2)
+| Eprod_red_r :
+  forall M2 N2 : term,
+  Ered1 M2 N2 -> forall M1 : term, Ered1 (Prod M1 M2) (Prod M1 N2)
+(* New terms *)
+| 
+.
 
 Inductive Ered (M : term) : term -> Prop :=
   | Erefl : Ered M M
@@ -746,5 +752,4 @@ Lemma Ered_sort_mem :
  forall (t : term) (s : sort), Ered t (Srt s) -> mem_sort s t.
 intros; apply mem_sort2_mem_sort; apply Ered_sort_mem2; trivial.
 Qed.
-
- 
+*)

@@ -1,0 +1,7 @@
+coc
+core.ml*
+*.aux
+*.cmi
+*.cmo
+*.cmx
+*.o

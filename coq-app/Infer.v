@@ -23,149 +23,269 @@ Require Import Conv_Dec.
 
 Load "ImpVar".
 
+(* 
+  We either return a sort the term reduces to or give nothing and prove 
+  that the the term is not convertible to a sort.
+*)
 Definition red_to_sort :
   forall t,
   sn t -> {s : sort | red t (Srt s)} + {(forall s, ~ conv t (Srt s))}.
 Proof.
   intros t snt.
-  elim compute_nf with (1 := snt); intros [s| n| T b| u v| T U] redt nt.
-  left.
-  exists s; trivial.
-
-  right; red in |- *; intros.
-  elim church_rosser with (Srt s) (Ref n); intros.
-  generalize H0.
-  elim (red_normal (Ref n) x); auto with coc; intros.
-  apply red_sort_sort with s (Ref n); auto with coc.
-  discriminate.
-
-  apply trans_conv_conv with t; auto with coc.
-
-  right; red in |- *; intros.
-  elim church_rosser with (Srt s) (Abs T b); intros.
-  generalize H0.
-  elim (red_normal (Abs T b) x); auto with coc; intros.
-  apply red_sort_sort with s (Abs T b); auto with coc.
-  discriminate.
-
-  apply trans_conv_conv with t; auto with coc.
-
-  right; red in |- *; intros.
-  elim church_rosser with (Srt s) (App u v); intros.
-  generalize H0.
-  elim (red_normal (App u v) x); auto with coc; intros.
-  apply red_sort_sort with s (App u v); auto with coc.
-  discriminate.
-
-  apply trans_conv_conv with t; auto with coc.
-
-  right; red in |- *; intros.
-  elim church_rosser with (Srt s) (Prod T U); intros.
-  generalize H0.
-  elim (red_normal (Prod T U) x); auto with coc; intros.
-  apply red_sort_sort with s (Prod T U); auto with coc.
-  discriminate.
-
-  apply trans_conv_conv with t; auto with coc.
+  elim compute_nf with (1 := snt); 
+  intros [
+    s | n | T b | a b | T U | (**) | (**) | num_x | x1 x2 x3 x4 | x1 x2 x3 x4 |
+    x1 x2 x3 x4 | x1 x2 x3 x4 | x1 x2 x3 | x1 x2 x3 x4 | x1 x2 x3 x4 x5 x6 |
+    x1 x2 x3 x4 x5 x6 | x1 x2 | x | x1 x2 x3 | x1 x2 x3 x4 x5 x6 |
+    x1 x2 x3 x4 x5 x6 | (**) | x1 x2 | (**) | (**) | x1 x2 x3 | x1 x2 x3 |
+    x1 x2 x3 x4 | x1 x2 x3 x4 | x1 x2 x3 x4 x5 x6 | x1 x2 x3 x4 x5 x6 |
+    x1 x2 | x1 x2 x3 x4 | x | x | x1 x2 x3 | x1 x2 | x1 x2 x3 x4 x5 x6 |
+    x1 x2 x3 x4 x5 x6 | (**) | x1 x2 | x1 x2 | (**) | (**) | x1 x2 x3 x4 x5 | x1 x2 x3
+  ] redt nt;
+  try (
+    solve [
+      (
+        match goal with
+        | nt : normal ?W |- _ => (
+          right; red in |- *; intros;
+          elim church_rosser with (Srt s) W; 
+          [>
+            intros W' H0 H1;
+            generalize H0;
+            elim (red_normal W W'); auto with coc; intros;
+            apply red_sort_sort with s W; auto with coc;
+            discriminate |
+            intros;
+            apply trans_conv_conv with t; auto with coc
+          ]
+        )
+        end
+      )
+    ]
+  ).
+  left; exists s; trivial.
 Defined.
 
-
+(* Same goes for reduction to a product *)
 Definition red_to_prod :
-  forall t,
-  sn t ->
-  {p : term * term | match p with
-                   | (u, v) => red t (Prod u v)
-                    end} + {(forall u v, ~ conv t (Prod u v))}.
+  forall t, sn t ->
+  {
+    p : term * term | 
+    match p with
+    | (u, v) => red t (Prod u v)
+    end
+  } + 
+  {
+    (forall u v, ~ conv t (Prod u v))
+  }.
 Proof.
   intros t snt.
-  elim compute_nf with (1 := snt); intros [s| n| T b| u v| T U] redt nt.
-  right; red in |- *; intros.
-  elim church_rosser with (Prod u v) (Srt s); intros.
-  generalize H0.
-  elim (red_normal (Srt s) x); auto with coc; intros.
-  apply red_prod_prod with u v (Srt s); auto with coc; intros.
-  discriminate H3.
-
-  apply trans_conv_conv with t; auto with coc.
-
-  right; red in |- *; intros.
-  elim church_rosser with (Prod u v) (Ref n); intros.
-  generalize H0.
-  elim (red_normal (Ref n) x); auto with coc; intros.
-  apply red_prod_prod with u v (Ref n); auto with coc; intros.
-  discriminate H3.
-
-  apply trans_conv_conv with t; auto with coc.
-
-  right; red in |- *; intros.
-  elim church_rosser with (Prod u v) (Abs T b); intros.
-  generalize H0.
-  elim (red_normal (Abs T b) x); auto with coc; intros.
-  apply red_prod_prod with u v (Abs T b); auto with coc; intros.
-  discriminate H3.
-
-  apply trans_conv_conv with t; auto with coc.
-
-  right; red in |- *; intros.
-  elim church_rosser with (Prod u0 v0) (App u v); intros.
-  generalize H0.
-  elim (red_normal (App u v) x); auto with coc; intros.
-  apply red_prod_prod with u0 v0 (App u v); auto with coc; intros.
-  discriminate H3.
-
-  apply trans_conv_conv with t; auto with coc.
+  elim compute_nf with (1 := snt); 
+  intros [
+    s | n | T b | a b | T U | (**) | (**) | num_x | x1 x2 x3 x4 | x1 x2 x3 x4 |
+    x1 x2 x3 x4 | x1 x2 x3 x4 | x1 x2 x3 | x1 x2 x3 x4 | x1 x2 x3 x4 x5 x6 |
+    x1 x2 x3 x4 x5 x6 | x1 x2 | x | x1 x2 x3 | x1 x2 x3 x4 x5 x6 |
+    x1 x2 x3 x4 x5 x6 | (**) | x1 x2 | (**) | (**) | x1 x2 x3 | x1 x2 x3 |
+    x1 x2 x3 x4 | x1 x2 x3 x4 | x1 x2 x3 x4 x5 x6 | x1 x2 x3 x4 x5 x6 |
+    x1 x2 | x1 x2 x3 x4 | x | x | x1 x2 x3 | x1 x2 | x1 x2 x3 x4 x5 x6 |
+    x1 x2 x3 x4 x5 x6 | (**) | x1 x2 | x1 x2 | (**) | (**) | x1 x2 x3 x4 x5 | x1 x2 x3
+  ] redt nt;
+  try (
+    solve [
+      (
+        match goal with
+        | nt : normal ?W |- _ => (
+          right; red in |- *; intros;
+          elim church_rosser with (Prod u v) W; 
+          [>
+            intros W' H0 H1;
+            generalize H0;
+            elim (red_normal W W'); auto with coc; intros;
+            apply red_prod_prod with u v W; auto with coc; intros;
+            discriminate H3 |
+            intros;
+            apply trans_conv_conv with t; auto with coc
+          ]
+        )
+        end
+      )
+    ]
+  ).
 
   left; exists (T, U); trivial.
 Defined.
 
 Section TypeChecker.
 
-
+(*)
+  (* Type-checker's error code *)
   Inductive type_error : Set :=
-    | Under : term -> type_error -> type_error
-    | Expected_type : term -> term -> term -> type_error
-    | Kind_ill_typed : type_error
-    | Db_error : nat -> type_error
-    | Lambda_kind : term -> type_error
-    | Not_a_type : term -> term -> type_error
-    | Not_a_fun : term -> term -> type_error
-    | Apply_err : term -> term -> term -> term -> type_error.
+  (* 
+    A special wrapper-error-code to show that an error has happened in 
+    an extended environment 
+  *)
+  | Under : term -> type_error -> type_error
+  (*
+    We expected a type, but got not a type?
+  *)
+  | Expected_type : term -> term -> term -> type_error
+  (*
+    Ill-formed kind
+  *)
+  | Kind_ill_typed : type_error
+  (*
+    Failed to fetch a variable
+  *)
+  | Db_error : nat -> type_error
+  (*
+    Attempt to abstract over `kind`
+  *)
+  | Lambda_kind : term -> type_error
+  (*
+    Expected a type, got a term
+  *)
+  | Not_a_type : term -> term -> type_error
+  (*
+    The left part of the application is not
+    a function.
+  *)
+  | Not_a_fun : term -> term -> type_error
+  (*
+    THe right side of application has a type
+    which doesn't match the left side's domain.
+  *)
+  | Apply_err : term -> term -> term -> term -> type_error
+  (* New errors *)
+  (*
+    The successor constructor got a wrong 
+    argument
+  *)
+  | NatSucc_err : term -> term -> type_error
+  (*
+    The match statement for natural numbers
+    got a wrong choice function
+  *)
+  | NatDestruct_Choice_err : term -> term -> type_error
+  (*
+    The match statement for natural numbers
+    got a wrong reaction for zero
+  *)
+  | NatDestruct_OnZero_err : term -> term -> term -> type_error
+  (*
+    The match statement for natural numbers
+    got a wrong recution for succ
+  *)
+  | NatDestruct_OnSucc_err : term -> term -> term -> type_error
+  (*
+    The match statement for natural numbers
+    got a wrong recursion argument
+  *)
+  | NatDestruct_Num_err : term -> term -> type_error
+  (*
+    The case statement for natural numbers
+    got a wrong choice function
+  *)
+  | NatCases_Choice_err : term -> term -> type_error
+  (*
+    The case statement for natural numbers
+    got a wrong reaction for zero
+  *)
+  | NatCases_OnZero_err : term -> term -> term -> type_error
+  (*
+    The case statement for natural numbers
+    got a wrong recution for succ
+  *)
+  | NatCases_OnSucc_err : term -> term -> term -> type_error
+  (*
+    The case statement for natural numbers
+    got a wrong recursion argument
+  *)
+  | NatCases_Num_err : term -> term -> type_error
+  .
 
-
-(* meaning of errors *)
+  (* meaning of errors *)
   Inductive expln : env -> type_error -> Prop :=
-    | Exp_under :
-        forall e t (err : type_error),
-        expln (t :: e) err -> expln e (Under t err)
-    | Exp_exp_type :
-        forall e (m at_ et : term),
-        typ e m at_ ->
-        ~ typ e m et ->
-        free_db (length e) et -> expln e (Expected_type m at_ et)
-    | Exp_kind :
-        forall e,
-        wf e -> (forall t, ~ typ e (Srt kind) t) -> expln e Kind_ill_typed
-    | Exp_db : forall e n, wf e -> length e <= n -> expln e (Db_error n)
-    | Exp_lam_kind :
-        forall e (m : term) t,
-        typ (t :: e) m (Srt kind) -> expln e (Lambda_kind (Abs t m))
-    | Exp_type :
-        forall e (m : term) t,
-        typ e m t ->
-        (forall s, ~ typ e m (Srt s)) -> expln e (Not_a_type m t)
-    | Exp_fun :
-        forall e (m : term) t,
-        typ e m t ->
-        (forall a b : term, ~ typ e m (Prod a b)) -> expln e (Not_a_fun m t)
-    | Exp_appl_err :
-        forall e u v (a b tv : term),
-        typ e u (Prod a b) ->
-        typ e v tv -> ~ typ e v a -> expln e (Apply_err u (Prod a b) v tv).
+  | Exp_under :
+    forall e t (err : type_error),
+    expln (t :: e) err -> expln e (Under t err)
+  | Exp_exp_type :
+    forall e (m at_ et : term),
+    typ e m at_ ->
+    typ e m et ->
+    free_db (length e) et -> expln e (Expected_type m at_ et)
+  | Exp_kind :
+    forall e,
+    wf e -> (forall t, ~ typ e (Srt kind) t) -> expln e Kind_ill_typed
+  | Exp_db : forall e n, wf e -> length e <= n -> expln e (Db_error n)
+  | Exp_lam_kind :
+    forall e (m : term) t,
+    typ (t :: e) m (Srt kind) -> expln e (Lambda_kind (Abs t m))
+  | Exp_type :
+    forall e (m : term) t,
+    typ e m t ->
+    (forall s, ~ typ e m (Srt s)) -> expln e (Not_a_type m t)
+  | Exp_fun :
+    forall e (m : term) t,
+    typ e m t ->
+    (forall a b : term, ~ typ e m (Prod a b)) -> expln e (Not_a_fun m t)
+  | Exp_appl_err :
+    forall e u v (a b tv : term),
+    typ e u (Prod a b) ->
+    typ e v tv -> ~ typ e v a -> expln e (Apply_err u (Prod a b) v tv)
+  (* New terms *)
+  | Exp_nat_succ :
+    forall e t T,
+    typ e t T ->
+    ~ typ e t Nat ->
+    expln e (NatSucc_err t T)
+  | Exp_nat_destruct_choice :
+    forall e choice T,
+    typ e choice T ->
+    ~ typ e choice (Prod Nat (Srt set)) ->
+    expln e (NatDestruct_Choice_err choice T)
+  | Exp_nat_destruct_on_zero :
+    forall e choice on_zero T,
+    typ e on_zero T ->
+    ~ typ e on_zero (App choice NatO) ->
+    expln e (NatDestruct_OnZero_err choice on_zero T)
+  | Exp_nat_destruct_on_succ :
+    forall e choice on_succ T,
+    typ e on_succ T ->
+    ~ typ e on_succ (Prod Nat (App (lift 1 choice) (NatSucc (Ref 0)))) ->
+    expln e (NatDestruct_OnSucc_err choice on_succ T)
+  | Exp_nat_destruct_num :
+    forall e num T,
+    typ e num T ->
+    ~ typ e num Nat ->
+    expln e (NatDestruct_Num_err num T)
+  | Exp_nat_cases_choice :
+    forall e choice T,
+    typ e choice T ->
+    ~ typ e choice (Prod Nat (Srt prop)) ->
+    expln e (NatCases_Choice_err choice T)
+  | Exp_nat_cases_on_zero :
+    forall e choice on_zero T,
+    typ e on_zero T ->
+    ~ typ e on_zero (App choice NatO) ->
+    expln e (NatCases_OnZero_err choice on_zero T)
+  | Exp_nat_cases_on_succ :
+    forall e choice on_succ T,
+    typ e on_succ T ->
+    ~ typ e on_succ (Prod Nat (App (lift 1 choice) (NatSucc (Ref 0)))) ->
+    expln e (NatCases_OnSucc_err choice on_succ T)
+  | Exp_nat_cases_num :
+    forall e num T,
+    typ e num T ->
+    ~ typ e num Nat ->
+    expln e (NatCases_Num_err num T)
+  .
 
   Hint Resolve Exp_under Exp_exp_type Exp_kind Exp_db Exp_lam_kind Exp_type
     Exp_fun Exp_appl_err: coc.
 
+  (* Explanation is always given under a well-formed context *)
   Lemma expln_wf : forall e (err : type_error), expln e err -> wf e.
+  Proof.
     simple induction 1; intros; auto with coc arith.
     inversion_clear H1.
     apply typ_wf with t (Srt s); auto with coc arith.
@@ -183,36 +303,85 @@ Section TypeChecker.
     apply typ_wf with m t; auto with coc arith.
 
     apply typ_wf with v tv; auto with coc arith.
+
+    apply typ_wf with t T; auto with coc arith.
+
+    apply typ_wf with choice T; auto with coc arith.
+
+    apply typ_wf with on_zero T; auto with coc arith.
+
+    apply typ_wf with on_succ T; auto with coc arith.
+
+    apply typ_wf with num T; auto with coc arith.
+
+    apply typ_wf with choice T; auto with coc arith.
+
+    apply typ_wf with on_zero T; auto with coc arith.
+
+    apply typ_wf with on_succ T; auto with coc arith.
+
+    apply typ_wf with num T; auto with coc arith.
   Qed.
 
+  (* Inference error *)
   Inductive inf_error : term -> type_error -> Prop :=
-    | Infe_subt :
-        forall (m n : term) (err : type_error),
-        subt_nobind m n -> inf_error m err -> inf_error n err
-    | Infe_under :
-        forall (m n : term) T (err : type_error),
-        subt_bind T m n -> inf_error m err -> inf_error n (Under T err)
-    | Infe_kind : inf_error (Srt kind) Kind_ill_typed
-    | Infe_db : forall n, inf_error (Ref n) (Db_error n)
-    | Infe_lam_kind : forall M T, inf_error (Abs T M) (Lambda_kind (Abs T M))
-    | Infe_type_abs :
-        forall (m n : term) t, inf_error (Abs m n) (Not_a_type m t)
-    | Infe_fun : forall (m n : term) t, inf_error (App m n) (Not_a_fun m t)
-    | Infe_appl_err :
-        forall m n tf ta : term, inf_error (App m n) (Apply_err m tf n ta)
-    | Infe_type_prod_l :
-        forall (m n : term) t, inf_error (Prod m n) (Not_a_type m t)
-    | Infe_type_prod_r :
-        forall (m n : term) t,
-        inf_error (Prod m n) (Under m (Not_a_type n t)).
+  (* This error happened in a subterm *)
+  | Infe_subt :
+    forall (m n : term) (err : type_error),
+    subt_nobind m n -> inf_error m err -> inf_error n err
+  (* This error happened in an extneded environment *)
+  | Infe_under :
+    forall (m n : term) T (err : type_error),
+    subt_bind T m n -> inf_error m err -> inf_error n (Under T err)
+  (* This is a kind error *)
+  | Infe_kind : inf_error (Srt kind) Kind_ill_typed
+  (* This is an error about DB *)
+  | Infe_db : forall n, inf_error (Ref n) (Db_error n)
+  (* This is an error about lamda using a kind *)
+  | Infe_lam_kind : forall M T, inf_error (Abs T M) (Lambda_kind (Abs T M))
+  (* This is an error  *)
+  | Infe_type_abs :
+    forall (m n : term) t, inf_error (Abs m n) (Not_a_type m t)
+  (* This is an error about a term not being a function *)
+  | Infe_fun : forall (m n : term) t, inf_error (App m n) (Not_a_fun m t)
+  (* This is an error about term's type4 not satisfying the domain type *)
+  | Infe_appl_err :
+    forall m n tf ta : term, inf_error (App m n) (Apply_err m tf n ta)
+  (* This is an error about left part of product not being a type *)
+  | Infe_type_prod_l :
+    forall (m n : term) t, inf_error (Prod m n) (Not_a_type m t)
+  (* This is an error about right aprt of product not being a type *)
+  | Infe_type_prod_r :
+    forall (m n : term) t,
+    inf_error (Prod m n) (Under m (Not_a_type n t))
+  (* New terms! *)
+  | Infe_nat_succ :
+    forall t T, inf_error (NatSucc t) (NatSucc_err t T)
+  | Infe_nat_destruct_choice :
+    forall choice on_zero on_succ num T, inf_error (NatDestruct choice on_zero on_succ num) (NatDestruct_Choice_err choice T) 
+  | Infe_nat_destruct_on_zero :
+    forall choice on_zero on_succ num T, inf_error (NatDestruct choice on_zero on_succ num) (NatDestruct_OnZero_err choice on_zero T) 
+  | Infe_nat_destruct_on_succ :
+    forall choice on_zero on_succ num T, inf_error (NatDestruct choice on_zero on_succ num) (NatDestruct_OnSucc_err choice on_succ T) 
+  | Infe_nat_destruct_num :
+    forall choice on_zero on_succ num T, inf_error (NatDestruct choice on_zero on_succ num) (NatDestruct_Num_err num T) 
+  | Infe_nat_cases_choice :
+    forall choice on_zero on_succ num T, inf_error (NatCases choice on_zero on_succ num) (NatCases_Choice_err choice T) 
+  | Infe_nat_cases_on_zero :
+    forall choice on_zero on_succ num T, inf_error (NatCases choice on_zero on_succ num) (NatCases_OnZero_err choice on_zero T) 
+  | Infe_nat_cases_on_succ :
+    forall choice on_zero on_succ num T, inf_error (NatCases choice on_zero on_succ num) (NatCases_OnSucc_err choice on_succ T) 
+  | Infe_nat_cases_num :
+    forall choice on_zero on_succ num T, inf_error (NatCases choice on_zero on_succ num) (NatCases_Num_err num T) 
+  .
 
   Hint Resolve Infe_kind Infe_db Infe_lam_kind Infe_type_abs Infe_fun
     Infe_appl_err Infe_type_prod_l Infe_type_prod_r: coc.
 
-
+  (* If an error happened, there's no way the term is typable *)
   Lemma inf_error_no_type :
-   forall (m : term) (err : type_error),
-   inf_error m err -> forall e, expln e err -> forall t, ~ typ e m t.
+    forall (m : term) (err : type_error),
+    inf_error m err -> forall e, expln e err -> forall t, ~ typ e m t.
   Proof.
     simple induction 1; intros.
     inversion_clear H0; red in |- *; intros.
@@ -227,6 +396,33 @@ Section TypeChecker.
 
     apply inv_typ_prod with e m0 n0 t; intros; auto with coc arith.
     elim H2 with e (Srt s1); auto with coc arith.
+
+    apply inv_typ_nat_destruct with e m0 a2 a3 a4 t; intros; auto with coc arith.
+    elim H2 with e Tx1; auto with coc arith.
+
+    apply inv_typ_nat_destruct with e a1 m0 a3 a4 t; intros; auto with coc arith.
+    elim H2 with e Tx2; auto with coc arith.
+
+    apply inv_typ_nat_destruct with e a1 a2 m0 a4 t; intros; auto with coc arith.
+    elim H2 with e Tx3; auto with coc arith.
+
+    apply inv_typ_nat_destruct with e a1 a2 a3 m0 t; intros; auto with coc arith.
+    elim H2 with e Tx4; auto with coc arith.
+
+    apply inv_typ_nat_cases with e m0 a2 a3 a4 t; intros; auto with coc arith.
+    elim H2 with e Tx1; auto with coc arith.
+
+    apply inv_typ_nat_cases with e a1 m0 a3 a4 t; intros; auto with coc arith.
+    elim H2 with e Tx2; auto with coc arith.
+
+    apply inv_typ_nat_cases with e a1 a2 m0 a4 t; intros; auto with coc arith.
+    elim H2 with e Tx3; auto with coc arith.
+
+    apply inv_typ_nat_cases with e a1 a2 a3 m0 t; intros; auto with coc arith.
+    elim H2 with e Tx4; auto with coc arith.
+
+    apply inv_typ_nat_succ with e m0 t; intros; auto with coc arith.
+    elim H2 with e Tx; auto with coc arith.
 
     inversion_clear H3.
     inversion_clear H0; red in |- *; intros.
@@ -284,75 +480,171 @@ Section TypeChecker.
     red in |- *; intros.
     apply inv_typ_prod with e m0 n t0; intros; auto with coc arith.
     elim H2 with s2; auto with coc arith.
+
+    inversion_clear H0.
+    intro F.
+    apply inv_typ_nat_succ with e t t0; auto with coc core; intros.
+    apply type_conv with e t Tx Nat set in H0; auto with coc core.
+    apply type_nat; eapply typ_wf; eauto.
+
+    inversion_clear H0.
+    intro F.
+    apply inv_typ_nat_destruct with e choice on_zero on_succ num t; auto with coc core; intros.
+    apply type_conv with e choice Tx1 (Prod Nat (Srt set)) kind in H0; auto with coc core.
+    apply type_prod with set; auto with coc core.
+    apply type_nat; eapply typ_wf; eauto.
+    apply type_set; apply wf_var with set; apply type_nat; eapply typ_wf; eauto.
+
+    inversion_clear H0.
+    intro F.
+    apply inv_typ_nat_destruct with e choice on_zero on_succ num t; auto with coc core; intros.
+    apply type_conv with e on_zero Tx2 (App choice NatO) set in H3; auto with coc core.
+    change (Srt set) with (subst NatO (Srt set)).
+    apply type_app with Nat.
+    apply type_nat_o; eapply typ_wf; eauto.
+    apply type_conv with Tx1 kind; auto with coc core.
+    apply type_prod with set; auto with coc core.
+    apply type_nat; eapply typ_wf; eauto.
+    apply type_set; apply wf_var with set; apply type_nat; eapply typ_wf; eauto.
+
+    inversion_clear H0.
+    intro F.
+    apply inv_typ_nat_destruct with e choice on_zero on_succ num t; auto with coc core; intros.
+    apply type_conv with e on_succ Tx3 (Prod Nat (App (lift 1 choice) (NatSucc (Ref 0)))) set in H4; auto with coc core.
+    apply type_prod with set.
+    apply type_nat; eapply typ_wf; eauto.
+    change (Srt set) with (subst (NatSucc (Ref 0)) (Srt set)).
+    apply type_app with Nat.
+    apply type_nat_succ; apply type_var.
+    apply wf_var with set; apply type_nat; eapply typ_wf; eauto.
+    exists Nat; auto with coc core.
+    change (Prod Nat (Srt set)) with (lift 1 (Prod Nat (Srt set))).
+    apply thinning; auto with coc core.
+    apply type_conv with e choice Tx1 (Prod Nat (Srt set)) kind in H0; auto with coc core.
+    apply type_prod with set.
+    apply type_nat; eapply typ_wf; eauto.
+    apply type_set; apply wf_var with set; apply type_nat; eapply typ_wf; eauto.
+    apply wf_var with set; apply type_nat; eapply typ_wf; eauto.
+
+    inversion_clear H0.
+    intro F.
+    apply inv_typ_nat_destruct with e choice on_zero on_succ num t; auto with coc core; intros.
+    apply type_conv with e num Tx4 Nat set in H5; auto with coc core.
+    apply type_nat; eapply typ_wf; eauto.
+    
+    
+
+    
+    inversion_clear H0.
+    intro F.
+    apply inv_typ_nat_cases with e choice on_zero on_succ num t; auto with coc core; intros.
+    apply type_conv with e choice Tx1 (Prod Nat (Srt prop)) kind in H0; auto with coc core.
+    apply type_prod with set; auto with coc core.
+    apply type_nat; eapply typ_wf; eauto.
+    apply type_prop; apply wf_var with set; apply type_nat; eapply typ_wf; eauto.
+
+    inversion_clear H0.
+    intro F.
+    apply inv_typ_nat_cases with e choice on_zero on_succ num t; auto with coc core; intros.
+    apply type_conv with e on_zero Tx2 (App choice NatO) prop in H3; auto with coc core.
+    change (Srt prop) with (subst NatO (Srt prop)).
+    apply type_app with Nat.
+    apply type_nat_o; eapply typ_wf; eauto.
+    apply type_conv with Tx1 kind; auto with coc core.
+    apply type_prod with set; auto with coc core.
+    apply type_nat; eapply typ_wf; eauto.
+    apply type_prop; apply wf_var with set; apply type_nat; eapply typ_wf; eauto.
+
+    inversion_clear H0.
+    intro F.
+    apply inv_typ_nat_cases with e choice on_zero on_succ num t; auto with coc core; intros.
+    apply type_conv with e on_succ Tx3 (Prod Nat (App (lift 1 choice) (NatSucc (Ref 0)))) prop in H4; auto with coc core.
+    apply type_prod with set.
+    apply type_nat; eapply typ_wf; eauto.
+    change (Srt prop) with (subst (NatSucc (Ref 0)) (Srt prop)).
+    apply type_app with Nat.
+    apply type_nat_succ; apply type_var.
+    apply wf_var with set; apply type_nat; eapply typ_wf; eauto.
+    exists Nat; auto with coc core.
+    change (Prod Nat (Srt prop)) with (lift 1 (Prod Nat (Srt prop))).
+    apply thinning; auto with coc core.
+    apply type_conv with e choice Tx1 (Prod Nat (Srt prop)) kind in H0; auto with coc core.
+    apply type_prod with set.
+    apply type_nat; eapply typ_wf; eauto.
+    apply type_prop; apply wf_var with set; apply type_nat; eapply typ_wf; eauto.
+    apply wf_var with set; apply type_nat; eapply typ_wf; eauto.
+
+    inversion_clear H0.
+    intro F.
+    apply inv_typ_nat_cases with e choice on_zero on_succ num t; auto with coc core; intros.
+    apply type_conv with e num Tx4 Nat set in H5; auto with coc core.
+    apply type_nat; eapply typ_wf; eauto.
   Qed.
+*)
 
-
+  (* The inference of type is decidable *)
   Definition infer :
    forall e t,
    wf e ->
    {T : term | typ e t T} +
-   {err : type_error | expln e err &  inf_error t err}.
+   {forall T : term, ~ typ e t T}.
   Proof.
     do 2 intro.
     generalize t e.
     clear e t.
 
-    induction t.
+    simple induction t.
 
     (*sorts*)
-      intros.
-      case s.
-      (*type of kind*)
-      right.
-      exists Kind_ill_typed; auto with coc arith.
-      apply Exp_kind; intros; auto with coc arith.
-      apply inv_typ_kind.
-      (*type of prop*)
-      left.
-      exists (Srt kind).
-      apply type_prop; auto with coc arith.
-      (*type of set*)
-      left.
-      exists (Srt kind).
-      apply type_set; auto with coc arith.
+    intros.
+    case s.
+    (*type of kind*)
+    right.
+    apply inv_typ_kind.
+    (*type of prop*)
+    left.
+    exists (Srt kind).
+    apply type_prop; auto with coc arith.
+    (*type of set*)
+    left.
+    exists (Srt kind).
+    apply type_set; auto with coc arith.
 
     (*var*)
-      intros.
-      (*okay*)
-      generalize (list_item term e n); intros [(T, H0)| b].
-      left.
-      exists (lift (S n) T).
-      apply type_var; auto with coc arith.
-      exists T; auto with coc arith.
-      (*failed to fetch from env*)
-      right.
-      exists (Db_error n); auto with coc arith.
-      apply Exp_db; auto with coc arith.
-      generalize n b.
-      elim e; simpl in |- *; auto with coc arith.
-      simple destruct n0; intros.
-      elim b0 with a; auto with coc arith.
-      cut (length l <= n1); auto with coc arith.
-      apply H0.
-      red in |- *; intros.
-      elim b0 with t; auto with coc arith.
+    intros.
+    generalize (list_item term e n); 
+    intros [(T, H0)| b].
+    (*okay*)
+    left.
+    exists (lift (S n) T).
+    apply type_var; auto with coc arith.
+    exists T; auto with coc arith.
+    (*failed to fetch from env*)
+    right.
+    intros T H0.
+    apply inv_typ_ref with e T n; auto with coc core arith datatypes.
+    intros.
+    elim b with U; trivial.
 
     (*Abs*)
-      intros a b.
-      elim (IHt1 a b); trivial with coc arith.
-      intros (T, ty_a).
-      elim (red_to_sort T); trivial with coc arith.
-      intros (s, srt_T).
-      cut (wf (t1 :: a)); intros.
-      elim (IHt2 (t1 :: a) H); trivial with coc arith.
-      intros (B, ty_b).
-      elim (eqterm (Srt kind) B).
-      intro eq_kind.
-      (*failure*)
-      right.
-      exists (Lambda_kind (Abs t1 t2)); auto with coc arith.
-      apply Exp_lam_kind; auto with coc arith.
-      rewrite eq_kind; auto with coc arith.
+    intros a Ha b Hb e H.
+    elim Ha with e; trivial with coc arith.
+    intros (T, ty_a).
+    elim (red_to_sort T); trivial with coc arith.
+    intros (s, srt_T).
+    cut (wf (a :: e)); intros.
+    elim Hb with (a :: e); trivial with coc arith.
+    intros (B, ty_b).
+    elim (eqterm (Srt kind) B).
+    intro eq_kind.
+    (*failure*)
+    right.
+    intros T0 H1.
+    subst B.
+    apply inv_typ_abs with e a b T0; auto with coc arith.
+    intros.
+    
+(*)
       (*good*)
       intro not_kind.
       left.
@@ -482,19 +774,236 @@ Section TypeChecker.
       right.
       exists err; auto with coc arith.
       apply Infe_subt with t1; auto with coc arith.
-  Defined.
 
+    (* nat *)
+      intros; left; exists (Srt set); apply type_nat; auto with coc arith.
+
+    (* nat o *)
+      intros; left; exists Nat; apply type_nat_o; auto with coc arith.
+
+    (* nat succ *)
+      intros.
+      elim IHt with e; intros; auto with coc arith.
+      elim a; intros.
+      elim is_conv with Nat x; intros.
+      left; exists Nat; apply type_nat_succ; apply type_conv with e t x Nat set in p; auto with coc core.
+      apply type_nat; eapply typ_wf; eauto.
+      right.
+      exists (NatSucc_err t x).
+      apply Exp_nat_succ; intros; auto with coc core.
+      intro F.
+      apply b.
+      apply typ_unique with e t; auto with coc core.
+      apply Infe_nat_succ.
+      apply str_norm with e (Srt set); apply type_nat; eapply typ_wf; eauto.
+      apply type_sn with e t; auto with coc core.
+      elim b; intros.
+      right.
+      exists x; auto with coc core.
+      apply Infe_subt with t; auto with coc core.
+
+    (* nat destruct *)
+      intros.
+      elim IHt1 with e; auto with coc core; intros.
+      elim IHt2 with e; auto with coc core; intros.
+      elim IHt3 with e; auto with coc core; intros.
+      elim IHt4 with e; auto with coc core; intros.
+      elim a2; elim a1; elim a0; elim a; intros.
+      elim (is_conv x (Prod Nat (Srt set))); intros.
+      elim (is_conv x0 (App t1 NatO)); intros.
+      elim (is_conv x1 (Prod Nat (App (lift 1 t1) (NatSucc (Ref 0))))); intros.
+      elim (is_conv x2 Nat); intros.
+      eapply type_conv with _ _ _ _ kind in p; eauto.
+      eapply type_conv with _ _ _ _ set in p0; eauto.
+      eapply type_conv with _ _ _ _ set in p1; eauto.
+      eapply type_conv with _ _ _ _ set in p2; eauto.
+      left; exists (App t1 t4); apply type_nat_destruct; auto with coc core.
+      apply type_nat; eapply typ_wf; eauto.
+      apply type_prod with set.
+      apply type_nat; eapply typ_wf; eauto.
+      change (Srt set) with (subst (NatSucc (Ref 0)) (Srt set)).
+      apply type_app with Nat.
+      apply type_nat_succ; apply type_var.
+      apply wf_var with set; apply type_nat; eapply typ_wf; eauto.
+      exists Nat; auto with coc core.
+      change (Prod Nat (Srt set)) with (lift 1 (Prod Nat (Srt set))); apply thinning; auto with coc core.
+      apply wf_var with set; apply type_nat; eapply typ_wf; eauto.
+      change (Srt set) with (subst NatO (Srt set)); apply type_app with Nat; auto with coc core.
+      apply type_nat_o; eapply typ_wf; eauto.
+      apply type_prod with set.
+      apply type_nat; eapply typ_wf; eauto.
+      apply type_set; apply wf_var with set; apply type_nat; eapply typ_wf; eauto.
+      right; exists (NatDestruct_Num_err t4 x2).
+      apply Exp_nat_destruct_num; auto with coc core.
+      intro F; apply b; eapply typ_unique with e t4; auto with coc core.
+      apply Infe_nat_destruct_num.
+      exact (type_sn _ _ _ p2).
+      apply (str_norm e Nat (Srt set)).
+      apply type_nat; eapply typ_wf; eauto.
+      right; exists (NatDestruct_OnSucc_err t1 t3 x1).
+      apply Exp_nat_destruct_on_succ; auto with coc core.
+      intro F; apply b; eapply typ_unique with e t3; auto with coc core.
+      apply Infe_nat_destruct_on_succ; auto with coc core.
+      exact (type_sn _ _ _ p1).
+      cut (typ e (Prod Nat (App (lift 1 t1) (NatSucc (Ref 0)))) (Srt set)).
+      apply str_norm.
+      apply type_prod with set.
+      apply type_nat; eapply typ_wf; eauto.
+      change (Srt set) with (subst (NatSucc (Ref 0)) (Srt set)).
+      apply type_app with Nat.
+      apply type_nat_succ; apply type_var.
+      apply wf_var with set; apply type_nat; eapply typ_wf; eauto.
+      exists Nat; auto with coc core.
+      change (Prod Nat (Srt set)) with (lift 1 (Prod Nat (Srt set))); apply thinning; auto with coc core.
+      apply type_conv with x kind; auto with coc core.
+      apply type_prod with set.
+      apply type_nat; eapply typ_wf; eauto.
+      apply type_set; apply wf_var with set; apply type_nat; eapply typ_wf; eauto.
+      apply wf_var with set; apply type_nat; eapply typ_wf; eauto.
+      right; exists (NatDestruct_OnZero_err t1 t2 x0); auto with coc core.
+      apply Exp_nat_destruct_on_zero; auto with coc core.
+      intro F; apply b; eapply typ_unique with e t2; auto with coc core.
+      apply Infe_nat_destruct_on_zero; auto with coc core.
+      exact (type_sn _ _ _ p0).
+      cut (typ e (App t1 NatO) (Srt set)).
+      apply str_norm.
+      change (Srt set) with (subst NatO (Srt set)); apply type_app with Nat.
+      apply type_nat_o; eapply typ_wf; eauto.
+      apply type_conv with x kind; auto with coc core.
+      apply type_prod with set.
+      apply type_nat; eapply typ_wf; eauto.
+      apply type_set; apply wf_var with set; apply type_nat; eapply typ_wf; eauto.
+      right; exists (NatDestruct_Choice_err t1 x); auto with coc core.
+      apply Exp_nat_destruct_choice; auto with coc core.
+      intro F; apply b; eapply typ_unique with e t1; auto with coc core.
+      apply Infe_nat_destruct_choice; auto with coc core.
+      exact (type_sn _ _ _ p).
+      cut (typ e (Prod Nat (Srt set)) (Srt kind)).
+      apply str_norm.
+      apply type_prod with set.
+      apply type_nat; eapply typ_wf; eauto.
+      apply type_set; apply wf_var with set; apply type_nat; eapply typ_wf; eauto.
+      elim b; intros.
+      right; exists x; auto with coc core.
+      apply Infe_subt with t4; auto with coc core.
+      elim b; intros.
+      right; exists x; auto with coc core.
+      apply Infe_subt with t3; auto with coc core.
+      elim b; intros.
+      right; exists x; auto with coc core.
+      apply Infe_subt with t2; auto with coc core.
+      elim b; intros.
+      right; exists x; auto with coc core.
+      apply Infe_subt with t1; auto with coc core.
+
+    (* nat cases *)
+      intros.
+      elim IHt1 with e; auto with coc core; intros.
+      elim IHt2 with e; auto with coc core; intros.
+      elim IHt3 with e; auto with coc core; intros.
+      elim IHt4 with e; auto with coc core; intros.
+      elim a2; elim a1; elim a0; elim a; intros.
+      elim (is_conv x (Prod Nat (Srt prop))); intros.
+      elim (is_conv x0 (App t1 NatO)); intros.
+      elim (is_conv x1 (Prod Nat (App (lift 1 t1) (NatSucc (Ref 0))))); intros.
+      elim (is_conv x2 Nat); intros.
+      eapply type_conv with _ _ _ _ kind in p; eauto.
+      eapply type_conv with _ _ _ _ prop in p0; eauto.
+      eapply type_conv with _ _ _ _ prop in p1; eauto.
+      eapply type_conv with _ _ _ _ set in p2; eauto.
+      left; exists (App t1 t4); apply type_nat_cases; auto with coc core.
+      apply type_nat; eapply typ_wf; eauto.
+      apply type_prod with set.
+      apply type_nat; eapply typ_wf; eauto.
+      change (Srt prop) with (subst (NatSucc (Ref 0)) (Srt prop)).
+      apply type_app with Nat.
+      apply type_nat_succ; apply type_var.
+      apply wf_var with set; apply type_nat; eapply typ_wf; eauto.
+      exists Nat; auto with coc core.
+      change (Prod Nat (Srt prop)) with (lift 1 (Prod Nat (Srt prop))); apply thinning; auto with coc core.
+      apply wf_var with set; apply type_nat; eapply typ_wf; eauto.
+      change (Srt prop) with (subst NatO (Srt prop)); apply type_app with Nat; auto with coc core.
+      apply type_nat_o; eapply typ_wf; eauto.
+      apply type_prod with set.
+      apply type_nat; eapply typ_wf; eauto.
+      apply type_prop; apply wf_var with set; apply type_nat; eapply typ_wf; eauto.
+      right; exists (NatCases_Num_err t4 x2).
+      apply Exp_nat_cases_num; auto with coc core.
+      intro F; apply b; eapply typ_unique with e t4; auto with coc core.
+      apply Infe_nat_cases_num.
+      exact (type_sn _ _ _ p2).
+      apply (str_norm e Nat (Srt set)).
+      apply type_nat; eapply typ_wf; eauto.
+      right; exists (NatCases_OnSucc_err t1 t3 x1).
+      apply Exp_nat_cases_on_succ; auto with coc core.
+      intro F; apply b; eapply typ_unique with e t3; auto with coc core.
+      apply Infe_nat_cases_on_succ; auto with coc core.
+      exact (type_sn _ _ _ p1).
+      cut (typ e (Prod Nat (App (lift 1 t1) (NatSucc (Ref 0)))) (Srt prop)).
+      apply str_norm.
+      apply type_prod with set.
+      apply type_nat; eapply typ_wf; eauto.
+      change (Srt prop) with (subst (NatSucc (Ref 0)) (Srt prop)).
+      apply type_app with Nat.
+      apply type_nat_succ; apply type_var.
+      apply wf_var with set; apply type_nat; eapply typ_wf; eauto.
+      exists Nat; auto with coc core.
+      change (Prod Nat (Srt prop)) with (lift 1 (Prod Nat (Srt prop))); apply thinning; auto with coc core.
+      apply type_conv with x kind; auto with coc core.
+      apply type_prod with set.
+      apply type_nat; eapply typ_wf; eauto.
+      apply type_prop; apply wf_var with set; apply type_nat; eapply typ_wf; eauto.
+      apply wf_var with set; apply type_nat; eapply typ_wf; eauto.
+      right; exists (NatCases_OnZero_err t1 t2 x0); auto with coc core.
+      apply Exp_nat_cases_on_zero; auto with coc core.
+      intro F; apply b; eapply typ_unique with e t2; auto with coc core.
+      apply Infe_nat_cases_on_zero; auto with coc core.
+      exact (type_sn _ _ _ p0).
+      cut (typ e (App t1 NatO) (Srt prop)).
+      apply str_norm.
+      change (Srt prop) with (subst NatO (Srt prop)); apply type_app with Nat.
+      apply type_nat_o; eapply typ_wf; eauto.
+      apply type_conv with x kind; auto with coc core.
+      apply type_prod with set.
+      apply type_nat; eapply typ_wf; eauto.
+      apply type_prop; apply wf_var with set; apply type_nat; eapply typ_wf; eauto.
+      right; exists (NatCases_Choice_err t1 x); auto with coc core.
+      apply Exp_nat_cases_choice; auto with coc core.
+      intro F; apply b; eapply typ_unique with e t1; auto with coc core.
+      apply Infe_nat_cases_choice; auto with coc core.
+      exact (type_sn _ _ _ p).
+      cut (typ e (Prod Nat (Srt prop)) (Srt kind)).
+      apply str_norm.
+      apply type_prod with set.
+      apply type_nat; eapply typ_wf; eauto.
+      apply type_prop; apply wf_var with set; apply type_nat; eapply typ_wf; eauto.
+      elim b; intros.
+      right; exists x; auto with coc core.
+      apply Infe_subt with t4; auto with coc core.
+      elim b; intros.
+      right; exists x; auto with coc core.
+      apply Infe_subt with t3; auto with coc core.
+      elim b; intros.
+      right; exists x; auto with coc core.
+      apply Infe_subt with t2; auto with coc core.
+      elim b; intros.
+      right; exists x; auto with coc core.
+      apply Infe_subt with t1; auto with coc core.
+  Defined.
+*)
+(*)
   Inductive chk_error (m : term) t : type_error -> Prop :=
-    | Chke_subj :
-        forall err : type_error, inf_error m err -> chk_error m t err
-    | Chke_type :
-        forall err : type_error,
-        inf_error t err -> t <> Srt kind -> chk_error m t err
-    | Chke_exp : forall at_ : term, chk_error m t (Expected_type m at_ t).
+  | Chke_subj :
+    forall err : type_error, inf_error m err -> chk_error m t err
+  | Chke_type :
+    forall err : type_error,
+    inf_error t err -> t <> Srt kind -> chk_error m t err
+  | Chke_exp : forall at_ : term, chk_error m t (Expected_type m at_ t)
+  .
 
   Hint Resolve Chke_subj Chke_type Chke_exp: coc.
-
-
+*)
+(*)
   Lemma chk_error_no_type :
    forall e (m : term) t (err : type_error),
    chk_error m t err -> expln e err -> ~ typ e m t.
@@ -681,3 +1190,4 @@ Section Decidabilite_typage.
   Qed.
 
 End Decidabilite_typage.
+*)

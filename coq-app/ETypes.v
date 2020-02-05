@@ -20,7 +20,7 @@ Require Import Ered.
 Require Export MyList.
 Require Import Types.
 
- 
+(*)
 Section Typage.
 
   Inductive Ewf : env -> Prop :=
@@ -317,3 +317,4 @@ Qed.
 
 End Typage.
 
+*)

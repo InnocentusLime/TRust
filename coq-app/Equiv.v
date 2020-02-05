@@ -22,6 +22,7 @@ Require Import ETypes.
 Require Import Conv_Dec.
 Require Import Strong_Norm.
 
+(*)
 Definition is_lam (t : term) :=
   exists T : term, (exists M : term, t = Abs T M).
 
@@ -482,3 +483,4 @@ apply typ_sort_Econv_Econv with e0 U V; auto with ecoc.
 rewrite H6 in H1.
 elim (inv_Etyp_Econv_kind e0 V (Srt s)); auto with ecoc.
 Qed.
+*)

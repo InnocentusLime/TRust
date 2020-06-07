@@ -550,6 +550,7 @@ Section Typage.
       P
     | AccIntro x1 x2 x3 x4 =>
       forall Tx1 Tx2 Tx3 Tx4,
+      typ e x1 Tx1 -> typ e x2 Tx2 -> typ e x3 Tx3 -> typ e x4 Tx4 ->
       conv Tx1 (Srt set) ->
       conv Tx2 (Prod x1 (Prod (lift 1 x1) (Srt prop))) ->
       conv Tx3 x1 ->
@@ -1365,6 +1366,7 @@ Section Typage.
     typ e (AccIntro x1 x2 x3 x4) T ->
     (
       forall Tx1 Tx2 Tx3 Tx4,
+      typ e x1 Tx1 -> typ e x2 Tx2 -> typ e x3 Tx3 -> typ e x4 Tx4 ->
       conv Tx1 (Srt set) ->
       conv Tx2 (Prod x1 (Prod (lift 1 x1) (Srt prop))) ->
       conv Tx3 x1 ->
@@ -2086,7 +2088,6 @@ Section Typage.
     auto with coc core arith datatypes; intros.
   Qed.
 
-(*)
   (* We now show that a term which contains sort `Kind` is not typable *)
   Lemma typ_mem_kind : forall e t T, mem_sort kind t -> ~ typ e t T.
   Proof.
@@ -2129,10 +2130,142 @@ Section Typage.
     apply typ_inversion with e0 on_zero Tx2; auto with coc core arith datatypes.
     apply typ_inversion with e0 on_succ Tx3; auto with coc core arith datatypes.
     apply typ_inversion with e0 num Tx4; auto with coc core arith datatypes.
-  Qed.
-*)
 
-(*)
+    apply typ_inversion with e0 type Tx1; auto with coc core arith datatypes.
+    apply typ_inversion with e0 rel Tx2; auto with coc core arith datatypes.
+    apply typ_inversion with e0 val Tx3; auto with coc core arith datatypes.
+
+    apply typ_inversion with e0 type Tx1; auto with coc core arith datatypes.
+    apply typ_inversion with e0 rel Tx2; auto with coc core arith datatypes.
+    apply typ_inversion with e0 val Tx3; auto with coc core arith datatypes.
+    apply typ_inversion with e0 proof Tx4; auto with coc core arith datatypes.
+
+    apply typ_inversion with e0 type Tx1; auto with coc core arith datatypes.
+    apply typ_inversion with e0 rel Tx2; auto with coc core arith datatypes.
+    apply typ_inversion with e0 choice Tx3; auto with coc core arith datatypes.
+    apply typ_inversion with e0 f Tx4; auto with coc core arith datatypes.
+    apply typ_inversion with e0 val Tx5; auto with coc core arith datatypes.
+    apply typ_inversion with e0 proof Tx6; auto with coc core arith datatypes.
+
+    apply typ_inversion with e0 type Tx1; auto with coc core arith datatypes.
+    apply typ_inversion with e0 rel Tx2; auto with coc core arith datatypes.
+    apply typ_inversion with e0 choice Tx3; auto with coc core arith datatypes.
+    apply typ_inversion with e0 f Tx4; auto with coc core arith datatypes.
+    apply typ_inversion with e0 val Tx5; auto with coc core arith datatypes.
+    apply typ_inversion with e0 proof Tx6; auto with coc core arith datatypes.
+
+    apply typ_inversion with e0 l Tx1; auto with coc core arith datatypes.
+    apply typ_inversion with e0 r Tx2; auto with coc core arith datatypes.
+
+    apply typ_inversion with e0 n Tx; auto with coc core arith datatypes.
+
+    apply typ_inversion with e0 l Tx1; auto with coc core arith datatypes.
+    apply typ_inversion with e0 r Tx2; auto with coc core arith datatypes.
+    apply typ_inversion with e0 proof Tx3; auto with coc core arith datatypes.
+
+    apply typ_inversion with e0 choice Tx1; auto with coc core arith datatypes.
+    apply typ_inversion with e0 on_le_n Tx2; auto with coc core arith datatypes.
+    apply typ_inversion with e0 on_le_s Tx3; auto with coc core arith datatypes.
+    apply typ_inversion with e0 l Tx4; auto with coc core arith datatypes.
+    apply typ_inversion with e0 r Tx5; auto with coc core arith datatypes.
+    apply typ_inversion with e0 proof Tx6; auto with coc core arith datatypes.
+
+    apply typ_inversion with e0 choice Tx1; auto with coc core arith datatypes.
+    apply typ_inversion with e0 on_le_n Tx2; auto with coc core arith datatypes.
+    apply typ_inversion with e0 on_le_s Tx3; auto with coc core arith datatypes.
+    apply typ_inversion with e0 l Tx4; auto with coc core arith datatypes.
+    apply typ_inversion with e0 r Tx5; auto with coc core arith datatypes.
+    apply typ_inversion with e0 proof Tx6; auto with coc core arith datatypes.
+
+    apply typ_inversion with e0 left_pred Tx1; auto with coc core arith datatypes.
+    apply typ_inversion with e0 right_pred Tx2; auto with coc core arith datatypes.
+
+    apply typ_inversion with e0 left_pred Tx1; auto with coc core arith datatypes.
+    apply typ_inversion with e0 right_pred Tx2; auto with coc core arith datatypes.
+    apply typ_inversion with e0 proof Tx3; auto with coc core arith datatypes.
+
+    apply typ_inversion with e0 left_pred Tx1; auto with coc core arith datatypes.
+    apply typ_inversion with e0 right_pred Tx2; auto with coc core arith datatypes.
+    apply typ_inversion with e0 proof Tx3; auto with coc core arith datatypes.
+
+    apply typ_inversion with e0 choice Tx1; auto with coc core arith datatypes.
+    apply typ_inversion with e0 on_true Tx2; auto with coc core arith datatypes.
+    apply typ_inversion with e0 on_false Tx3; auto with coc core arith datatypes.
+    apply typ_inversion with e0 proof Tx4; auto with coc core arith datatypes.
+
+    apply typ_inversion with e0 choice Tx1; auto with coc core arith datatypes.
+    apply typ_inversion with e0 on_true Tx2; auto with coc core arith datatypes.
+    apply typ_inversion with e0 on_false Tx3; auto with coc core arith datatypes.
+    apply typ_inversion with e0 proof Tx4; auto with coc core arith datatypes.
+
+    apply typ_inversion with e0 left_pred Tx1; auto with coc core arith datatypes.
+    apply typ_inversion with e0 right_pred Tx2; auto with coc core arith datatypes.
+    apply typ_inversion with e0 choice Tx3; auto with coc core arith datatypes.
+    apply typ_inversion with e0 on_true Tx4; auto with coc core arith datatypes.
+    apply typ_inversion with e0 on_false Tx5; auto with coc core arith datatypes.
+    apply typ_inversion with e0 bool Tx6; auto with coc core arith datatypes.
+
+    apply typ_inversion with e0 left_pred Tx1; auto with coc core arith datatypes.
+    apply typ_inversion with e0 right_pred Tx2; auto with coc core arith datatypes.
+    apply typ_inversion with e0 choice Tx3; auto with coc core arith datatypes.
+    apply typ_inversion with e0 on_true Tx4; auto with coc core arith datatypes.
+    apply typ_inversion with e0 on_false Tx5; auto with coc core arith datatypes.
+    apply typ_inversion with e0 bool Tx6; auto with coc core arith datatypes.
+
+    apply typ_inversion with e0 type Tx1; auto with coc core arith datatypes.
+    apply typ_inversion with e0 property Tx2; auto with coc core arith datatypes.
+
+    apply typ_inversion with e0 type Tx1; auto with coc core arith datatypes.
+    apply typ_inversion with e0 property Tx2; auto with coc core arith datatypes.
+    apply typ_inversion with e0 val Tx3; auto with coc core arith datatypes.
+    apply typ_inversion with e0 proof Tx4; auto with coc core arith datatypes.
+
+    apply typ_inversion with e0 type Tx1; auto with coc core arith datatypes.
+    apply typ_inversion with e0 property Tx2; auto with coc core arith datatypes.
+    apply typ_inversion with e0 ref Tx3; auto with coc core arith datatypes.
+
+    apply typ_inversion with e0 type Tx1; auto with coc core arith datatypes.
+    apply typ_inversion with e0 property Tx2; auto with coc core arith datatypes.
+    apply typ_inversion with e0 ref Tx3; auto with coc core arith datatypes.
+
+    apply typ_inversion with e0 type Tx1; auto with coc core arith datatypes.
+    apply typ_inversion with e0 l Tx2; auto with coc core arith datatypes.
+    apply typ_inversion with e0 r Tx3; auto with coc core arith datatypes.
+
+    apply typ_inversion with e0 type Tx1; auto with coc core arith datatypes.
+    apply typ_inversion with e0 val Tx2; auto with coc core arith datatypes.
+
+    apply typ_inversion with e0 type Tx1; auto with coc core arith datatypes.
+    apply typ_inversion with e0 l Tx2; auto with coc core arith datatypes.
+    apply typ_inversion with e0 r Tx3; auto with coc core arith datatypes.
+    apply typ_inversion with e0 property Tx4; auto with coc core arith datatypes.
+    apply typ_inversion with e0 impl Tx5; auto with coc core arith datatypes.
+    apply typ_inversion with e0 proof Tx6; auto with coc core arith datatypes.
+
+    apply typ_inversion with e0 type Tx1; auto with coc core arith datatypes.
+    apply typ_inversion with e0 l Tx2; auto with coc core arith datatypes.
+    apply typ_inversion with e0 r Tx3; auto with coc core arith datatypes.
+    apply typ_inversion with e0 property Tx4; auto with coc core arith datatypes.
+    apply typ_inversion with e0 impl Tx5; auto with coc core arith datatypes.
+    apply typ_inversion with e0 proof Tx6; auto with coc core arith datatypes.
+
+    apply typ_inversion with e0 proof Tx1; auto with coc core arith datatypes.
+    apply typ_inversion with e0 property Tx2; auto with coc core arith datatypes.
+
+    apply typ_inversion with e0 proof Tx1; auto with coc core arith datatypes.
+    apply typ_inversion with e0 property Tx2; auto with coc core arith datatypes.
+
+    apply typ_inversion with e0 type Tx1; auto with coc core arith datatypes.
+    apply typ_inversion with e0 rel Tx2; auto with coc core arith datatypes.
+    apply typ_inversion with e0 choice Tx3; auto with coc core arith datatypes.
+    apply typ_inversion with e0 f Tx4; auto with coc core arith datatypes.
+    apply typ_inversion with e0 proof Tx5; auto with coc core arith datatypes.
+
+    apply typ_inversion with e0 on_true Tx1; auto with coc core arith datatypes.
+    apply typ_inversion with e0 on_false Tx2; auto with coc core arith datatypes.
+    apply typ_inversion with e0 val Tx3; auto with coc core arith datatypes.
+  Qed.
+
   (* Then we show that any term convertible to `Kind` is not typable *)
   Lemma inv_typ_conv_kind : forall e t T, conv t (Srt kind) -> ~ typ e t T.
   Proof.
@@ -2145,7 +2278,6 @@ Section Typage.
     red in |- *; red in |- *; intros.
     inversion_clear H2.
   Qed.
-*)
 
 
   (*
@@ -2560,7 +2692,6 @@ Section Typage.
     weakened, because we add a new var to the
     context.
   *)
-  (*)
   Lemma typ_sub_weak :
     forall g (d : term) t, typ g d t ->
     forall e u (U : term), typ e u U ->
@@ -2617,6 +2748,154 @@ Section Typage.
 
     apply type_nat_cases; auto with coc core datatypes.
     rewrite <- commut_lift_subst; auto with coc arith datatypes.
+
+    apply type_nat_rec; auto with coc core datatypes.
+    rewrite <- commut_lift_subst; auto with coc arith datatypes.
+    unfold lift at 2.
+    rewrite commut_lift_subst_rec; auto with coc arith datatypes.
+    change (2 + n) with (S (S n)).
+    auto with coc arith datatypes.
+
+    apply type_nat_ind; auto with coc core datatypes.
+    rewrite <- commut_lift_subst; auto with coc arith datatypes.
+    unfold lift at 2.
+    rewrite commut_lift_subst_rec; auto with coc arith datatypes.
+    change (2 + n) with (S (S n)).
+    auto with coc arith datatypes.
+
+    apply type_acc_prop; auto with coc core datatypes.
+    rewrite <- commut_lift_subst; auto with coc arith datatypes.
+
+    apply type_acc_intro; auto with coc core datatypes.
+    rewrite <- commut_lift_subst; auto with coc arith datatypes.
+    rewrite <- commut_lift_subst; auto with coc arith datatypes.
+    rewrite <- commut_lift_subst; auto with coc arith datatypes.
+    unfold lift at 3.
+    unfold lift at 3.
+    rewrite commut_lift_subst_rec; auto with coc arith datatypes.
+    rewrite commut_lift_subst_rec; auto with coc arith datatypes.
+    change (2 + n) with (S (S n)).
+    auto with coc arith datatypes.
+
+    apply type_acc_rec; auto with coc core datatypes.
+    rewrite <- commut_lift_subst; auto with coc arith datatypes.
+    unfold lift at 2.
+    unfold lift at 2.
+    unfold lift at 2.
+    rewrite <- commut_lift_subst; auto with coc arith datatypes.
+    rewrite commut_lift_subst_rec; auto with coc arith datatypes.
+    rewrite commut_lift_subst_rec; auto with coc arith datatypes.
+    change (3 + n) with (S (S (S n))).
+    change (2 + n) with (S (S n)).
+    auto with coc arith datatypes.
+
+    apply type_acc_ind; auto with coc core datatypes.
+    rewrite <- commut_lift_subst; auto with coc arith datatypes.
+    unfold lift at 2.
+    unfold lift at 2.
+    unfold lift at 2.
+    rewrite <- commut_lift_subst; auto with coc arith datatypes.
+    rewrite commut_lift_subst_rec; auto with coc arith datatypes.
+    rewrite commut_lift_subst_rec; auto with coc arith datatypes.
+    change (3 + n) with (S (S (S n))).
+    change (2 + n) with (S (S n)).
+    auto with coc arith datatypes.
+
+    apply type_le; auto with coc core datatypes.
+
+    apply type_le_n; auto with coc core datatypes.
+
+    apply type_le_s; auto with coc core datatypes.
+
+    apply type_le_cases; auto with coc core datatypes.
+    unfold lift at 2.
+    rewrite <- commut_lift_subst; auto with coc arith datatypes.
+    rewrite commut_lift_subst_rec; auto with coc arith datatypes.
+    change (2 + n) with (S (S n)).
+    auto with coc arith datatypes.
+
+    apply type_le_ind; auto with coc core datatypes.
+    unfold lift at 2.
+    unfold lift at 2.
+    rewrite <- commut_lift_subst; auto with coc arith datatypes.
+    rewrite commut_lift_subst_rec; auto with coc arith datatypes.
+    rewrite commut_lift_subst_rec; auto with coc arith datatypes.
+    change (3 + n) with (S (S (S n))).
+    change (2 + n) with (S (S n)).
+    auto with coc arith datatypes.
+
+    apply type_bool; auto with coc core datatypes.
+
+    apply type_sumbool; auto with coc core datatypes.
+
+    apply type_bool_true; auto with coc core datatypes.
+
+    apply type_bool_false; auto with coc core datatypes.
+
+    apply type_sumbool_left; auto with coc core datatypes.
+
+    apply type_sumbool_right; auto with coc core datatypes.
+
+    apply type_bool_ind; auto with coc core datatypes.
+
+    apply type_bool_rec; auto with coc core datatypes.
+
+    apply type_sumbool_ind; auto with coc core datatypes.
+    rewrite <- commut_lift_subst; auto with coc arith datatypes.
+    rewrite <- commut_lift_subst; auto with coc arith datatypes.
+    rewrite <- commut_lift_subst; auto with coc arith datatypes.
+    rewrite <- commut_lift_subst; auto with coc arith datatypes.
+    rewrite <- commut_lift_subst; auto with coc arith datatypes.
+    rewrite <- commut_lift_subst; auto with coc arith datatypes.
+
+    apply type_sumbool_rec; auto with coc core datatypes.
+    rewrite <- commut_lift_subst; auto with coc arith datatypes.
+    rewrite <- commut_lift_subst; auto with coc arith datatypes.
+    rewrite <- commut_lift_subst; auto with coc arith datatypes.
+    rewrite <- commut_lift_subst; auto with coc arith datatypes.
+    rewrite <- commut_lift_subst; auto with coc arith datatypes.
+    rewrite <- commut_lift_subst; auto with coc arith datatypes.
+
+    apply type_refine; auto with coc core datatypes.
+
+    apply type_refine_constr; auto with coc core datatypes.
+
+    apply type_refine_proj_val; auto with coc core datatypes.
+
+    apply type_refine_proj_proof; auto with coc core datatypes.
+
+    apply type_eq; auto with coc core datatypes.
+
+    apply type_eq_refl; auto with coc core datatypes.
+
+    apply type_eq_ind; auto with coc core datatypes.
+
+    apply type_eq_rec; auto with coc core datatypes.
+
+    apply type_falsity; auto with coc core datatypes.
+
+    apply type_false_ind; auto with coc core datatypes.
+
+    apply type_false_rec; auto with coc core datatypes.
+
+    apply type_unit; auto with coc core datatypes.
+
+    apply type_nil; auto with coc core datatypes.
+
+    rewrite commut_lift_subst; auto with coc arith datatypes.
+    apply type_wf_rec; auto with coc core datatypes.
+    rewrite <- commut_lift_subst; auto with coc arith datatypes.
+    unfold lift at 3.
+    unfold lift at 3.
+    rewrite commut_lift_subst_rec; auto with coc arith datatypes.
+    rewrite commut_lift_subst_rec; auto with coc arith datatypes.
+    rewrite <- commut_lift_subst; auto with coc arith datatypes.
+    change (2 + n) with (S (S n)).
+    auto with coc arith datatypes.
+    rewrite <- commut_lift_subst; auto with coc arith datatypes.
+    rewrite <- commut_lift_subst; auto with coc arith datatypes.
+
+    apply type_bool_prop_choice; auto with coc arith datatypes.
   Qed.
 
   (*
@@ -2636,7 +2915,6 @@ Section Typage.
     apply typ_sub_weak with e t (t :: e); auto with coc core arith datatypes.
     apply typ_wf with d t; auto with coc core arith datatypes.
   Qed.
-  *)
 
 
 
@@ -2763,7 +3041,6 @@ Section Typage.
     apply inv_typ_bool_prop_choice with e0 x1 x2 x3 U; auto with coc core datatypes.
 Qed.
 
-(*)
   (* Any type of our term either has type which is as sort or that type is `Kind` *)
   Theorem type_case :
     forall e t T,
@@ -2820,6 +3097,171 @@ Qed.
     exists prop.
     change (Srt prop) with (subst x4 (Srt prop)).
     apply (type_app e0 x4 Nat); auto with coc core datatypes.
+
+    left.
+    exists set.
+    change (Srt set) with (subst x4 (Srt set)).
+    apply (type_app e0 x4 Nat); auto with coc core datatypes.
+
+    left.
+    exists prop.
+    change (Srt prop) with (subst x4 (Srt prop)).
+    apply (type_app e0 x4 Nat); auto with coc core datatypes.
+
+    left.
+    exists kind.
+    apply type_prop; auto with coc core datatypes.
+    eapply typ_wf; eauto with coc core datatypes.
+
+    left.
+    exists prop.
+    apply type_acc_prop; auto with coc core datatypes.
+
+    left.
+    exists set.
+    change (Srt set) with (subst x5 (Srt set)).
+    apply (type_app e0 x5 x1); auto with coc core datatypes.
+
+    left.
+    exists prop.
+    change (Srt prop) with (subst x5 (Srt prop)).
+    apply (type_app e0 x5 x1); auto with coc core datatypes.
+
+    left.
+    exists kind.
+    apply type_prop; auto with coc core datatypes.
+    eapply typ_wf; eauto with coc core datatypes.
+
+    left.
+    exists prop.
+    apply type_le; auto with coc core arith sets.
+
+    left.
+    exists prop.
+    apply type_le; auto with coc core arith sets.
+
+    left.
+    exists prop.
+    change (Srt prop) with (subst x5 (Srt prop)).
+    apply (type_app e0 x5 Nat); auto with coc core datatypes.
+
+    left.
+    exists prop.
+    change (Srt prop) with (subst x5 (Srt prop)).
+    apply (type_app e0 x5 Nat); auto with coc core datatypes.
+
+    left.
+    exists kind.
+    apply type_set; auto with coc core datatypes.
+
+    left.
+    exists kind.
+    apply type_set; auto with coc core datatypes.
+    eapply typ_wf; eauto with coc core datatypes.
+
+    left.
+    exists set.
+    apply type_bool; auto with coc core datatypes.
+
+    left.
+    exists set.
+    apply type_bool; auto with coc core datatypes.
+
+    left.
+    exists set.
+    apply type_sumbool; auto with coc core datatypes.
+
+    left.
+    exists set.
+    apply type_sumbool; auto with coc core datatypes.
+
+    left.
+    exists prop.
+    change (Srt prop) with (subst x4 (Srt prop)).
+    apply (type_app e0 x4 Bool); auto with coc core datatypes.
+
+    left.
+    exists set.
+    change (Srt set) with (subst x4 (Srt set)).
+    apply (type_app e0 x4 Bool); auto with coc core datatypes.
+
+    left.
+    exists prop.
+    change (Srt prop) with (subst x6 (Srt prop)).
+    apply (type_app e0 x6 (SumBool x1 x2)); auto with coc core datatypes.
+
+    left.
+    exists set.
+    change (Srt set) with (subst x6 (Srt set)).
+    apply (type_app e0 x6 (SumBool x1 x2)); auto with coc core datatypes.
+
+    left.
+    exists set.
+    apply type_refine; auto with coc core datatypes.
+
+    left.
+    exists set.
+    auto with coc core datatypes.
+
+    left.
+    exists prop.
+    change (Srt prop) with (subst (RefineProjVal x1 x2 x3) (Srt prop)).
+    apply (type_app e0 (RefineProjVal x1 x2 x3) x1); auto with coc core datatypes.
+    apply type_refine_proj_val; auto with coc core datatypes.
+
+    left.
+    exists kind.
+    apply type_prop.
+    eapply typ_wf; eauto with coc core datatypes.
+
+    left.
+    exists prop.
+    apply type_eq; auto with coc core datatypes.
+
+    left.
+    exists prop.
+    change (Srt prop) with (subst x3 (Srt prop)).
+    apply (type_app e0 x3 x1); auto with coc core datatypes.
+
+    left.
+    exists set.
+    change (Srt set) with (subst x3 (Srt set)).
+    apply (type_app e0 x3 x1); auto with coc core datatypes.
+
+    left.
+    exists kind.
+    apply type_prop; auto with coc core datatypes.
+
+    left.
+    exists prop.
+    auto with coc core datatypes.
+
+    left.
+    exists set.
+    auto with coc core datatypes.
+
+    left.
+    exists kind.
+    apply type_set.
+    auto with coc core datatypes.
+
+    left.
+    exists set.
+    apply type_unit.
+    auto with coc core datatypes.
+
+    left.
+    exists set.
+    apply type_prod with set; auto with coc core datatypes.
+    change (Srt set) with (subst (Ref 0) (Srt set)).
+    apply type_app with (lift 1 x1).
+    apply type_var; auto with coc core datatypes.
+    apply wf_var with set; auto with coc core datatypes.
+    unfold item_lift.
+    exists x1; auto with coc core datatypes.
+    change (Prod (lift 1 x1) (Srt set)) with (lift 1 (Prod x1 (Srt set))).
+    apply thinning; auto with coc core datatypes.
+    apply wf_var with set; auto with coc core datatypes.
   Qed.
 
 
@@ -2984,6 +3426,78 @@ Qed.
     apply type_nat_destruct; auto with coc core datatypes.
 
     apply type_nat_cases; auto with coc core datatypes.
+
+    apply type_nat_rec; auto with coc core datatypes.
+
+    apply type_nat_ind; auto with coc core datatypes.
+
+    apply type_acc_prop; auto with coc core datatypes.
+
+    apply type_acc_intro; auto with coc core datatypes.
+
+    apply type_acc_rec; auto with coc core datatypes.
+
+    apply type_acc_ind; auto with coc core datatypes.
+
+    apply type_le; auto with coc core datatypes.
+
+    apply type_le_n; auto with coc core datatypes.
+
+    apply type_le_s; auto with coc core datatypes.
+
+    apply type_le_cases; auto with coc core datatypes.
+
+    apply type_le_ind; auto with coc core datatypes.
+
+    apply type_bool; auto with coc core datatypes.
+
+    apply type_sumbool; auto with coc core datatypes.
+
+    apply type_bool_true; auto with coc core datatypes.
+
+    apply type_bool_false; auto with coc core datatypes.
+
+    apply type_sumbool_left; auto with coc core datatypes.
+
+    apply type_sumbool_right; auto with coc core datatypes.
+
+    apply type_bool_ind; auto with coc core datatypes.
+
+    apply type_bool_rec; auto with coc core datatypes.
+
+    apply type_sumbool_ind; auto with coc core datatypes.
+
+    apply type_sumbool_rec; auto with coc core datatypes.
+
+    apply type_refine; auto with coc core datatypes.
+
+    apply type_refine_constr; auto with coc core datatypes.
+
+    apply type_refine_proj_val; auto with coc core datatypes.
+
+    apply type_refine_proj_proof; auto with coc core datatypes.
+
+    apply type_eq; auto with coc core datatypes.
+
+    apply type_eq_refl; auto with coc core datatypes.
+
+    apply type_eq_ind; auto with coc core datatypes.
+
+    apply type_eq_rec; auto with coc core datatypes.
+
+    apply type_falsity; auto with coc core datatypes.
+
+    apply type_false_ind; auto with coc core datatypes.
+
+    apply type_false_rec; auto with coc core datatypes.
+
+    apply type_unit; auto with coc core datatypes.
+
+    apply type_nil; auto with coc core datatypes.
+
+    apply type_wf_rec; auto with coc core datatypes.
+
+    apply type_bool_prop_choice; auto with coc core datatypes.
   Qed.
 
 
@@ -3162,6 +3676,8 @@ Qed.
     intros.
     apply type_conv with Tx set; auto with coc core datatypes.
     apply type_nat; eapply typ_wf; eauto with coc core datatypes.
+
+(*
   Qed.
 
 

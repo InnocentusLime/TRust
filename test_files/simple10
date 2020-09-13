@@ -1,1 +1,0 @@
-((/x:{x:unit | exists x : nat.x == (succ (succ O)) :> nat}.x) nil)

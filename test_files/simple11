@@ -1,1 +1,0 @@
-((/x:lemma{forall x:nat.x == O :> nat \/ FALSE => (succ x) == (succ O) :> nat}.x) nil)

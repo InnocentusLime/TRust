@@ -1,1 +1,0 @@
-(/x:nat.(/y:nat.for y do {succ}{x}))

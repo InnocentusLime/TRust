@@ -1,1 +1,0 @@
-((/x:{x:nat | forall x:nat. x == x :> nat}.x) O)

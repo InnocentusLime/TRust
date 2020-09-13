@@ -1,0 +1,4752 @@
+   0  $accept : %entry% $end
+
+   1  rust_file : COMMENT rust_file
+   2            | fn_def rust_file
+   3            | EOF
+
+   4  fn_def : FN IDENT LPARAN fn_args RPARAN block
+   5         | FN IDENT LPARAN fn_args RPARAN ARROW typ block
+
+   6  fn_args : fn_args_sub
+   7          |
+
+   8  fn_args_sub : fn_arg COMMA fn_args_sub
+   9              | fn_arg
+
+  10  fn_arg : IDENT COLLON typ
+
+  11  typ : LPARAN RPARAN
+  12      | INT_T
+  13      | FN LPARAN maybe_typs RPARAN ARROW typ
+
+  14  maybe_typs : typs
+  15             |
+
+  16  typs : typ COMMA typs
+  17       | typ
+
+  18  statement : LET IDENT EQ expression
+  19            | expression
+
+  20  statements : statement SEMICOLLON statements
+  21             | statement
+  22             | statement SEMICOLLON
+
+  23  maybe_statements :
+  24                   | statements
+
+  25  block : LBRACE maybe_statements RBRACE
+
+  26  atom_expression : LPARAN RPARAN
+  27                  | IDENT
+  28                  | INT
+  29                  | ifthenelse
+  30                  | atom_expression LPARAN maybe_expressions RPARAN
+  31                  | LPARAN expression RPARAN
+
+  32  expression : atom_expression
+  33             | expression PLUS expression
+  34             | expression MINUS expression
+  35             | expression MULTIPLY atom_expression
+  36             | expression DIVIDE expression
+  37             | expression LANGLE expression
+  38             | expression RANGLE expression
+  39             | expression LANGLE_EQ expression
+  40             | expression RANGLE_EQ expression
+  41             | expression LONG_EQ expression
+  42             | MINUS expression
+  43             | block
+
+  44  maybe_expressions :
+  45                    | expressions
+
+  46  expressions : expression COMMA expressions
+  47              | expression
+
+  48  ifthenelse : IF expression block ELSE ifthenelse
+  49             | IF expression block ELSE block
+  50             | IF expression block
+
+  51  ptr_list : FN_PTR
+  52           | FN_PTR COMMA ptr_list
+
+  53  atom_ir_term : LPARAN ir_term RPARAN
+  54               | IDENT
+  55               | TOTAL
+  56               | DIVERGENT
+  57               | INT_T
+  58               | INT
+  59               | FN_PTR
+  60               | PROPOSITION
+  61               | TYPE
+  62               | PRE_TYPE
+  63               | KIND LSQBR INT RSQBR
+  64               | COMPUTATION_KIND
+  65               | PREDICATE
+  66               | atom_ir_term LANGLE ir_term RANGLE
+  67               | REC LSQBR ptr_list RSQBR LSQBR INT RSQBR
+  68               | MAX_COMP_KIND LPARAN ir_term COMMA ir_term RPARAN
+  69               | AND_INTRO LPARAN ir_term COMMA ir_term RPARAN
+  70               | OR_INTRO_L LPARAN ir_term COMMA ir_term RPARAN
+  71               | OR_INTRO_R LPARAN ir_term COMMA ir_term RPARAN
+  72               | AND_ELIM_L LPARAN ir_term COMMA ir_term RPARAN
+  73               | AND_ELIM_R LPARAN ir_term COMMA ir_term RPARAN
+  74               | EQ_INTRO LPARAN ir_term COMMA ir_term RPARAN
+  75               | OR_ELIM LPARAN ir_term COMMA ir_term COMMA ir_term RPARAN
+  76               | FN_PTR_TYPE LSQBR ir_term RSQBR
+  77               | DEREF_FN_PTR LSQBR ir_term RSQBR
+  78               | TRUTH
+  79               | PROOF_OF_TRUTH
+  80               | FALSITY
+  81               | EQ_ELIM LPARAN ir_term COMMA ir_term COMMA ir_term RPARAN
+  82               | FALSE_ELIM_PROP LPARAN ir_term COMMA ir_term RPARAN
+  83               | FALSE_ELIM_TYPE LPARAN ir_term COMMA ir_term RPARAN
+
+  84  app_ir_term : app_ir_term atom_ir_term
+  85              | atom_ir_term
+
+  86  arith_ir_term : app_ir_term
+  87                | MINUS arith_ir_term
+  88                | arith_ir_term PLUS arith_ir_term
+  89                | arith_ir_term MINUS arith_ir_term
+  90                | arith_ir_term MULTIPLY app_ir_term
+  91                | arith_ir_term PROPOR arith_ir_term
+  92                | arith_ir_term PROPAND app_ir_term
+  93                | FORALL IDENT COLLON ir_term DOT arith_ir_term
+  94                | app_ir_term ARROW arith_ir_term
+  95                | arith_ir_term EQ arith_ir_term TYPE_HINT app_ir_term
+
+  96  abs_ir_term : arith_ir_term
+  97              | SLASH IDENT COLLON ir_term DOT abs_ir_term
+
+  98  ir_term : abs_ir_term
+  99          | abs_ir_term SEMICOLLON ir_term
+
+ 100  def_arg : LPARAN IDENT COLLON ir_term RPARAN
+
+ 101  def_args : def_arg def_args
+ 102           | def_arg
+
+ 103  toplevel_precommand : QUIT
+ 104                      | RESET
+ 105                      | AXIOM IDENT COLLON ir_term
+ 106                      | TC_IR_TERM ir_term
+ 107                      | IR_DEFINITION IDENT def_args EQ ir_term
+ 108                      | IR_PRINT_DEFINITION IDENT
+
+ 109  toplevel_command : toplevel_precommand DOT
+
+ 110  maybe_toplevel_command : toplevel_command
+ 111                         | EOF
+
+ 112  %entry% : '\001' rust_file
+ 113          | '\002' expression
+ 114          | '\003' ir_term
+ 115          | '\004' toplevel_command
+ 116          | '\005' maybe_toplevel_command
+
+state 0
+	$accept : . %entry% $end  (0)
+
+	'\001'  shift 1
+	'\002'  shift 2
+	'\003'  shift 3
+	'\004'  shift 4
+	'\005'  shift 5
+	.  error
+
+	%entry%  goto 6
+
+
+state 1
+	%entry% : '\001' . rust_file  (112)
+
+	COMMENT  shift 7
+	EOF  shift 8
+	FN  shift 9
+	.  error
+
+	rust_file  goto 10
+	fn_def  goto 11
+
+
+state 2
+	%entry% : '\002' . expression  (113)
+
+	INT  shift 12
+	IDENT  shift 13
+	MINUS  shift 14
+	LPARAN  shift 15
+	LBRACE  shift 16
+	IF  shift 17
+	.  error
+
+	expression  goto 18
+	block  goto 19
+	atom_expression  goto 20
+	ifthenelse  goto 21
+
+
+state 3
+	%entry% : '\003' . ir_term  (114)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 55
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 4
+	%entry% : '\004' . toplevel_command  (115)
+
+	QUIT  shift 60
+	RESET  shift 61
+	AXIOM  shift 62
+	TC_IR_TERM  shift 63
+	IR_DEFINITION  shift 64
+	IR_PRINT_DEFINITION  shift 65
+	.  error
+
+	toplevel_command  goto 66
+	toplevel_precommand  goto 67
+
+
+state 5
+	%entry% : '\005' . maybe_toplevel_command  (116)
+
+	EOF  shift 68
+	QUIT  shift 60
+	RESET  shift 61
+	AXIOM  shift 62
+	TC_IR_TERM  shift 63
+	IR_DEFINITION  shift 64
+	IR_PRINT_DEFINITION  shift 65
+	.  error
+
+	toplevel_command  goto 69
+	maybe_toplevel_command  goto 70
+	toplevel_precommand  goto 67
+
+
+state 6
+	$accept : %entry% . $end  (0)
+
+	$end  accept
+
+
+state 7
+	rust_file : COMMENT . rust_file  (1)
+
+	COMMENT  shift 7
+	EOF  shift 8
+	FN  shift 9
+	.  error
+
+	rust_file  goto 71
+	fn_def  goto 11
+
+
+state 8
+	rust_file : EOF .  (3)
+
+	.  reduce 3
+
+
+state 9
+	fn_def : FN . IDENT LPARAN fn_args RPARAN block  (4)
+	fn_def : FN . IDENT LPARAN fn_args RPARAN ARROW typ block  (5)
+
+	IDENT  shift 72
+	.  error
+
+
+state 10
+	%entry% : '\001' rust_file .  (112)
+
+	.  reduce 112
+
+
+state 11
+	rust_file : fn_def . rust_file  (2)
+
+	COMMENT  shift 7
+	EOF  shift 8
+	FN  shift 9
+	.  error
+
+	rust_file  goto 73
+	fn_def  goto 11
+
+
+state 12
+	atom_expression : INT .  (28)
+
+	.  reduce 28
+
+
+state 13
+	atom_expression : IDENT .  (27)
+
+	.  reduce 27
+
+
+state 14
+	expression : MINUS . expression  (42)
+
+	INT  shift 12
+	IDENT  shift 13
+	MINUS  shift 14
+	LPARAN  shift 15
+	LBRACE  shift 16
+	IF  shift 17
+	.  error
+
+	expression  goto 74
+	block  goto 19
+	atom_expression  goto 20
+	ifthenelse  goto 21
+
+
+state 15
+	atom_expression : LPARAN . RPARAN  (26)
+	atom_expression : LPARAN . expression RPARAN  (31)
+
+	INT  shift 12
+	IDENT  shift 13
+	MINUS  shift 14
+	LPARAN  shift 15
+	RPARAN  shift 75
+	LBRACE  shift 16
+	IF  shift 17
+	.  error
+
+	expression  goto 76
+	block  goto 19
+	atom_expression  goto 20
+	ifthenelse  goto 21
+
+
+state 16
+	block : LBRACE . maybe_statements RBRACE  (25)
+	maybe_statements : .  (23)
+
+	INT  shift 12
+	IDENT  shift 13
+	LET  shift 77
+	MINUS  shift 14
+	LPARAN  shift 15
+	LBRACE  shift 16
+	IF  shift 17
+	RBRACE  reduce 23
+
+	expression  goto 78
+	block  goto 19
+	statement  goto 79
+	statements  goto 80
+	maybe_statements  goto 81
+	atom_expression  goto 20
+	ifthenelse  goto 21
+
+
+state 17
+	ifthenelse : IF . expression block ELSE ifthenelse  (48)
+	ifthenelse : IF . expression block ELSE block  (49)
+	ifthenelse : IF . expression block  (50)
+
+	INT  shift 12
+	IDENT  shift 13
+	MINUS  shift 14
+	LPARAN  shift 15
+	LBRACE  shift 16
+	IF  shift 17
+	.  error
+
+	expression  goto 82
+	block  goto 19
+	atom_expression  goto 20
+	ifthenelse  goto 21
+
+
+state 18
+	expression : expression . PLUS expression  (33)
+	expression : expression . MINUS expression  (34)
+	expression : expression . MULTIPLY atom_expression  (35)
+	expression : expression . DIVIDE expression  (36)
+	expression : expression . LANGLE expression  (37)
+	expression : expression . RANGLE expression  (38)
+	expression : expression . LANGLE_EQ expression  (39)
+	expression : expression . RANGLE_EQ expression  (40)
+	expression : expression . LONG_EQ expression  (41)
+	%entry% : '\002' expression .  (113)
+
+	PLUS  shift 83
+	MINUS  shift 84
+	MULTIPLY  shift 85
+	DIVIDE  shift 86
+	LANGLE  shift 87
+	RANGLE  shift 88
+	LANGLE_EQ  shift 89
+	RANGLE_EQ  shift 90
+	LONG_EQ  shift 91
+	$end  reduce 113
+
+
+state 19
+	expression : block .  (43)
+
+	.  reduce 43
+
+
+state 20
+	atom_expression : atom_expression . LPARAN maybe_expressions RPARAN  (30)
+	expression : atom_expression .  (32)
+
+	LPARAN  shift 92
+	$end  reduce 32
+	PLUS  reduce 32
+	MINUS  reduce 32
+	MULTIPLY  reduce 32
+	DIVIDE  reduce 32
+	LANGLE  reduce 32
+	RANGLE  reduce 32
+	LANGLE_EQ  reduce 32
+	RANGLE_EQ  reduce 32
+	LONG_EQ  reduce 32
+	SEMICOLLON  reduce 32
+	RPARAN  reduce 32
+	LBRACE  reduce 32
+	RBRACE  reduce 32
+	COMMA  reduce 32
+
+
+state 21
+	atom_expression : ifthenelse .  (29)
+
+	.  reduce 29
+
+
+state 22
+	atom_ir_term : TRUTH .  (78)
+
+	.  reduce 78
+
+
+state 23
+	atom_ir_term : FALSITY .  (80)
+
+	.  reduce 80
+
+
+state 24
+	atom_ir_term : INT .  (58)
+
+	.  reduce 58
+
+
+state 25
+	atom_ir_term : IDENT .  (54)
+
+	.  reduce 54
+
+
+state 26
+	atom_ir_term : FN_PTR .  (59)
+
+	.  reduce 59
+
+
+state 27
+	arith_ir_term : MINUS . arith_ir_term  (87)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 93
+
+
+state 28
+	atom_ir_term : LPARAN . ir_term RPARAN  (53)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 94
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 29
+	atom_ir_term : INT_T .  (57)
+
+	.  reduce 57
+
+
+state 30
+	atom_ir_term : TOTAL .  (55)
+
+	.  reduce 55
+
+
+state 31
+	atom_ir_term : DIVERGENT .  (56)
+
+	.  reduce 56
+
+
+state 32
+	atom_ir_term : MAX_COMP_KIND . LPARAN ir_term COMMA ir_term RPARAN  (68)
+
+	LPARAN  shift 95
+	.  error
+
+
+state 33
+	arith_ir_term : FORALL . IDENT COLLON ir_term DOT arith_ir_term  (93)
+
+	IDENT  shift 96
+	.  error
+
+
+state 34
+	abs_ir_term : SLASH . IDENT COLLON ir_term DOT abs_ir_term  (97)
+
+	IDENT  shift 97
+	.  error
+
+
+state 35
+	atom_ir_term : PROPOSITION .  (60)
+
+	.  reduce 60
+
+
+state 36
+	atom_ir_term : TYPE .  (61)
+
+	.  reduce 61
+
+
+state 37
+	atom_ir_term : PRE_TYPE .  (62)
+
+	.  reduce 62
+
+
+state 38
+	atom_ir_term : KIND . LSQBR INT RSQBR  (63)
+
+	LSQBR  shift 98
+	.  error
+
+
+state 39
+	atom_ir_term : COMPUTATION_KIND .  (64)
+
+	.  reduce 64
+
+
+state 40
+	atom_ir_term : PREDICATE .  (65)
+
+	.  reduce 65
+
+
+state 41
+	atom_ir_term : REC . LSQBR ptr_list RSQBR LSQBR INT RSQBR  (67)
+
+	LSQBR  shift 99
+	.  error
+
+
+state 42
+	atom_ir_term : AND_INTRO . LPARAN ir_term COMMA ir_term RPARAN  (69)
+
+	LPARAN  shift 100
+	.  error
+
+
+state 43
+	atom_ir_term : OR_INTRO_L . LPARAN ir_term COMMA ir_term RPARAN  (70)
+
+	LPARAN  shift 101
+	.  error
+
+
+state 44
+	atom_ir_term : OR_INTRO_R . LPARAN ir_term COMMA ir_term RPARAN  (71)
+
+	LPARAN  shift 102
+	.  error
+
+
+state 45
+	atom_ir_term : AND_ELIM_L . LPARAN ir_term COMMA ir_term RPARAN  (72)
+
+	LPARAN  shift 103
+	.  error
+
+
+state 46
+	atom_ir_term : AND_ELIM_R . LPARAN ir_term COMMA ir_term RPARAN  (73)
+
+	LPARAN  shift 104
+	.  error
+
+
+state 47
+	atom_ir_term : OR_ELIM . LPARAN ir_term COMMA ir_term COMMA ir_term RPARAN  (75)
+
+	LPARAN  shift 105
+	.  error
+
+
+state 48
+	atom_ir_term : EQ_INTRO . LPARAN ir_term COMMA ir_term RPARAN  (74)
+
+	LPARAN  shift 106
+	.  error
+
+
+state 49
+	atom_ir_term : EQ_ELIM . LPARAN ir_term COMMA ir_term COMMA ir_term RPARAN  (81)
+
+	LPARAN  shift 107
+	.  error
+
+
+state 50
+	atom_ir_term : FALSE_ELIM_PROP . LPARAN ir_term COMMA ir_term RPARAN  (82)
+
+	LPARAN  shift 108
+	.  error
+
+
+state 51
+	atom_ir_term : FALSE_ELIM_TYPE . LPARAN ir_term COMMA ir_term RPARAN  (83)
+
+	LPARAN  shift 109
+	.  error
+
+
+state 52
+	atom_ir_term : FN_PTR_TYPE . LSQBR ir_term RSQBR  (76)
+
+	LSQBR  shift 110
+	.  error
+
+
+state 53
+	atom_ir_term : DEREF_FN_PTR . LSQBR ir_term RSQBR  (77)
+
+	LSQBR  shift 111
+	.  error
+
+
+state 54
+	atom_ir_term : PROOF_OF_TRUTH .  (79)
+
+	.  reduce 79
+
+
+state 55
+	%entry% : '\003' ir_term .  (114)
+
+	.  reduce 114
+
+
+state 56
+	atom_ir_term : atom_ir_term . LANGLE ir_term RANGLE  (66)
+	app_ir_term : atom_ir_term .  (85)
+
+	LANGLE  shift 112
+	$end  reduce 85
+	TRUTH  reduce 85
+	FALSITY  reduce 85
+	INT  reduce 85
+	IDENT  reduce 85
+	FN_PTR  reduce 85
+	EQ  reduce 85
+	PLUS  reduce 85
+	MINUS  reduce 85
+	MULTIPLY  reduce 85
+	RANGLE  reduce 85
+	SEMICOLLON  reduce 85
+	LPARAN  reduce 85
+	RPARAN  reduce 85
+	RSQBR  reduce 85
+	ARROW  reduce 85
+	COMMA  reduce 85
+	INT_T  reduce 85
+	TYPE_HINT  reduce 85
+	PROPAND  reduce 85
+	PROPOR  reduce 85
+	TOTAL  reduce 85
+	DIVERGENT  reduce 85
+	MAX_COMP_KIND  reduce 85
+	DOT  reduce 85
+	PROPOSITION  reduce 85
+	TYPE  reduce 85
+	PRE_TYPE  reduce 85
+	KIND  reduce 85
+	COMPUTATION_KIND  reduce 85
+	PREDICATE  reduce 85
+	REC  reduce 85
+	AND_INTRO  reduce 85
+	OR_INTRO_L  reduce 85
+	OR_INTRO_R  reduce 85
+	AND_ELIM_L  reduce 85
+	AND_ELIM_R  reduce 85
+	OR_ELIM  reduce 85
+	EQ_INTRO  reduce 85
+	EQ_ELIM  reduce 85
+	FALSE_ELIM_PROP  reduce 85
+	FALSE_ELIM_TYPE  reduce 85
+	FN_PTR_TYPE  reduce 85
+	DEREF_FN_PTR  reduce 85
+	PROOF_OF_TRUTH  reduce 85
+
+
+state 57
+	app_ir_term : app_ir_term . atom_ir_term  (84)
+	arith_ir_term : app_ir_term .  (86)
+	arith_ir_term : app_ir_term . ARROW arith_ir_term  (94)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	LPARAN  shift 28
+	ARROW  shift 113
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	$end  reduce 86
+	EQ  reduce 86
+	PLUS  reduce 86
+	MINUS  reduce 86
+	MULTIPLY  reduce 86
+	RANGLE  reduce 86
+	SEMICOLLON  reduce 86
+	RPARAN  reduce 86
+	RSQBR  reduce 86
+	COMMA  reduce 86
+	TYPE_HINT  reduce 86
+	PROPAND  reduce 86
+	PROPOR  reduce 86
+	DOT  reduce 86
+
+	atom_ir_term  goto 114
+
+
+state 58
+	arith_ir_term : arith_ir_term . PLUS arith_ir_term  (88)
+	arith_ir_term : arith_ir_term . MINUS arith_ir_term  (89)
+	arith_ir_term : arith_ir_term . MULTIPLY app_ir_term  (90)
+	arith_ir_term : arith_ir_term . PROPOR arith_ir_term  (91)
+	arith_ir_term : arith_ir_term . PROPAND app_ir_term  (92)
+	arith_ir_term : arith_ir_term . EQ arith_ir_term TYPE_HINT app_ir_term  (95)
+	abs_ir_term : arith_ir_term .  (96)
+
+	EQ  shift 115
+	PLUS  shift 116
+	MINUS  shift 117
+	MULTIPLY  shift 118
+	PROPAND  shift 119
+	PROPOR  shift 120
+	$end  reduce 96
+	RANGLE  reduce 96
+	SEMICOLLON  reduce 96
+	RPARAN  reduce 96
+	RSQBR  reduce 96
+	COMMA  reduce 96
+	DOT  reduce 96
+
+
+state 59
+	ir_term : abs_ir_term .  (98)
+	ir_term : abs_ir_term . SEMICOLLON ir_term  (99)
+
+	SEMICOLLON  shift 121
+	$end  reduce 98
+	RANGLE  reduce 98
+	RPARAN  reduce 98
+	RSQBR  reduce 98
+	COMMA  reduce 98
+	DOT  reduce 98
+
+
+state 60
+	toplevel_precommand : QUIT .  (103)
+
+	.  reduce 103
+
+
+state 61
+	toplevel_precommand : RESET .  (104)
+
+	.  reduce 104
+
+
+state 62
+	toplevel_precommand : AXIOM . IDENT COLLON ir_term  (105)
+
+	IDENT  shift 122
+	.  error
+
+
+state 63
+	toplevel_precommand : TC_IR_TERM . ir_term  (106)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 123
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 64
+	toplevel_precommand : IR_DEFINITION . IDENT def_args EQ ir_term  (107)
+
+	IDENT  shift 124
+	.  error
+
+
+state 65
+	toplevel_precommand : IR_PRINT_DEFINITION . IDENT  (108)
+
+	IDENT  shift 125
+	.  error
+
+
+state 66
+	%entry% : '\004' toplevel_command .  (115)
+
+	.  reduce 115
+
+
+state 67
+	toplevel_command : toplevel_precommand . DOT  (109)
+
+	DOT  shift 126
+	.  error
+
+
+state 68
+	maybe_toplevel_command : EOF .  (111)
+
+	.  reduce 111
+
+
+state 69
+	maybe_toplevel_command : toplevel_command .  (110)
+
+	.  reduce 110
+
+
+state 70
+	%entry% : '\005' maybe_toplevel_command .  (116)
+
+	.  reduce 116
+
+
+state 71
+	rust_file : COMMENT rust_file .  (1)
+
+	.  reduce 1
+
+
+state 72
+	fn_def : FN IDENT . LPARAN fn_args RPARAN block  (4)
+	fn_def : FN IDENT . LPARAN fn_args RPARAN ARROW typ block  (5)
+
+	LPARAN  shift 127
+	.  error
+
+
+state 73
+	rust_file : fn_def rust_file .  (2)
+
+	.  reduce 2
+
+
+state 74
+	expression : expression . PLUS expression  (33)
+	expression : expression . MINUS expression  (34)
+	expression : expression . MULTIPLY atom_expression  (35)
+	expression : expression . DIVIDE expression  (36)
+	expression : expression . LANGLE expression  (37)
+	expression : expression . RANGLE expression  (38)
+	expression : expression . LANGLE_EQ expression  (39)
+	expression : expression . RANGLE_EQ expression  (40)
+	expression : expression . LONG_EQ expression  (41)
+	expression : MINUS expression .  (42)
+
+	.  reduce 42
+
+
+state 75
+	atom_expression : LPARAN RPARAN .  (26)
+
+	.  reduce 26
+
+
+state 76
+	atom_expression : LPARAN expression . RPARAN  (31)
+	expression : expression . PLUS expression  (33)
+	expression : expression . MINUS expression  (34)
+	expression : expression . MULTIPLY atom_expression  (35)
+	expression : expression . DIVIDE expression  (36)
+	expression : expression . LANGLE expression  (37)
+	expression : expression . RANGLE expression  (38)
+	expression : expression . LANGLE_EQ expression  (39)
+	expression : expression . RANGLE_EQ expression  (40)
+	expression : expression . LONG_EQ expression  (41)
+
+	PLUS  shift 83
+	MINUS  shift 84
+	MULTIPLY  shift 85
+	DIVIDE  shift 86
+	LANGLE  shift 87
+	RANGLE  shift 88
+	LANGLE_EQ  shift 89
+	RANGLE_EQ  shift 90
+	LONG_EQ  shift 91
+	RPARAN  shift 128
+	.  error
+
+
+state 77
+	statement : LET . IDENT EQ expression  (18)
+
+	IDENT  shift 129
+	.  error
+
+
+state 78
+	statement : expression .  (19)
+	expression : expression . PLUS expression  (33)
+	expression : expression . MINUS expression  (34)
+	expression : expression . MULTIPLY atom_expression  (35)
+	expression : expression . DIVIDE expression  (36)
+	expression : expression . LANGLE expression  (37)
+	expression : expression . RANGLE expression  (38)
+	expression : expression . LANGLE_EQ expression  (39)
+	expression : expression . RANGLE_EQ expression  (40)
+	expression : expression . LONG_EQ expression  (41)
+
+	PLUS  shift 83
+	MINUS  shift 84
+	MULTIPLY  shift 85
+	DIVIDE  shift 86
+	LANGLE  shift 87
+	RANGLE  shift 88
+	LANGLE_EQ  shift 89
+	RANGLE_EQ  shift 90
+	LONG_EQ  shift 91
+	SEMICOLLON  reduce 19
+	RBRACE  reduce 19
+
+
+state 79
+	statements : statement . SEMICOLLON statements  (20)
+	statements : statement .  (21)
+	statements : statement . SEMICOLLON  (22)
+
+	SEMICOLLON  shift 130
+	RBRACE  reduce 21
+
+
+state 80
+	maybe_statements : statements .  (24)
+
+	.  reduce 24
+
+
+state 81
+	block : LBRACE maybe_statements . RBRACE  (25)
+
+	RBRACE  shift 131
+	.  error
+
+
+state 82
+	expression : expression . PLUS expression  (33)
+	expression : expression . MINUS expression  (34)
+	expression : expression . MULTIPLY atom_expression  (35)
+	expression : expression . DIVIDE expression  (36)
+	expression : expression . LANGLE expression  (37)
+	expression : expression . RANGLE expression  (38)
+	expression : expression . LANGLE_EQ expression  (39)
+	expression : expression . RANGLE_EQ expression  (40)
+	expression : expression . LONG_EQ expression  (41)
+	ifthenelse : IF expression . block ELSE ifthenelse  (48)
+	ifthenelse : IF expression . block ELSE block  (49)
+	ifthenelse : IF expression . block  (50)
+
+	PLUS  shift 83
+	MINUS  shift 84
+	MULTIPLY  shift 85
+	DIVIDE  shift 86
+	LANGLE  shift 87
+	RANGLE  shift 88
+	LANGLE_EQ  shift 89
+	RANGLE_EQ  shift 90
+	LONG_EQ  shift 91
+	LBRACE  shift 16
+	.  error
+
+	block  goto 132
+
+
+state 83
+	expression : expression PLUS . expression  (33)
+
+	INT  shift 12
+	IDENT  shift 13
+	MINUS  shift 14
+	LPARAN  shift 15
+	LBRACE  shift 16
+	IF  shift 17
+	.  error
+
+	expression  goto 133
+	block  goto 19
+	atom_expression  goto 20
+	ifthenelse  goto 21
+
+
+state 84
+	expression : expression MINUS . expression  (34)
+
+	INT  shift 12
+	IDENT  shift 13
+	MINUS  shift 14
+	LPARAN  shift 15
+	LBRACE  shift 16
+	IF  shift 17
+	.  error
+
+	expression  goto 134
+	block  goto 19
+	atom_expression  goto 20
+	ifthenelse  goto 21
+
+
+state 85
+	expression : expression MULTIPLY . atom_expression  (35)
+
+	INT  shift 12
+	IDENT  shift 13
+	LPARAN  shift 15
+	IF  shift 17
+	.  error
+
+	atom_expression  goto 135
+	ifthenelse  goto 21
+
+
+state 86
+	expression : expression DIVIDE . expression  (36)
+
+	INT  shift 12
+	IDENT  shift 13
+	MINUS  shift 14
+	LPARAN  shift 15
+	LBRACE  shift 16
+	IF  shift 17
+	.  error
+
+	expression  goto 136
+	block  goto 19
+	atom_expression  goto 20
+	ifthenelse  goto 21
+
+
+state 87
+	expression : expression LANGLE . expression  (37)
+
+	INT  shift 12
+	IDENT  shift 13
+	MINUS  shift 14
+	LPARAN  shift 15
+	LBRACE  shift 16
+	IF  shift 17
+	.  error
+
+	expression  goto 137
+	block  goto 19
+	atom_expression  goto 20
+	ifthenelse  goto 21
+
+
+state 88
+	expression : expression RANGLE . expression  (38)
+
+	INT  shift 12
+	IDENT  shift 13
+	MINUS  shift 14
+	LPARAN  shift 15
+	LBRACE  shift 16
+	IF  shift 17
+	.  error
+
+	expression  goto 138
+	block  goto 19
+	atom_expression  goto 20
+	ifthenelse  goto 21
+
+
+state 89
+	expression : expression LANGLE_EQ . expression  (39)
+
+	INT  shift 12
+	IDENT  shift 13
+	MINUS  shift 14
+	LPARAN  shift 15
+	LBRACE  shift 16
+	IF  shift 17
+	.  error
+
+	expression  goto 139
+	block  goto 19
+	atom_expression  goto 20
+	ifthenelse  goto 21
+
+
+state 90
+	expression : expression RANGLE_EQ . expression  (40)
+
+	INT  shift 12
+	IDENT  shift 13
+	MINUS  shift 14
+	LPARAN  shift 15
+	LBRACE  shift 16
+	IF  shift 17
+	.  error
+
+	expression  goto 140
+	block  goto 19
+	atom_expression  goto 20
+	ifthenelse  goto 21
+
+
+state 91
+	expression : expression LONG_EQ . expression  (41)
+
+	INT  shift 12
+	IDENT  shift 13
+	MINUS  shift 14
+	LPARAN  shift 15
+	LBRACE  shift 16
+	IF  shift 17
+	.  error
+
+	expression  goto 141
+	block  goto 19
+	atom_expression  goto 20
+	ifthenelse  goto 21
+
+
+state 92
+	atom_expression : atom_expression LPARAN . maybe_expressions RPARAN  (30)
+	maybe_expressions : .  (44)
+
+	INT  shift 12
+	IDENT  shift 13
+	MINUS  shift 14
+	LPARAN  shift 15
+	LBRACE  shift 16
+	IF  shift 17
+	RPARAN  reduce 44
+
+	expression  goto 142
+	block  goto 19
+	atom_expression  goto 20
+	ifthenelse  goto 21
+	maybe_expressions  goto 143
+	expressions  goto 144
+
+
+state 93
+	arith_ir_term : MINUS arith_ir_term .  (87)
+	arith_ir_term : arith_ir_term . PLUS arith_ir_term  (88)
+	arith_ir_term : arith_ir_term . MINUS arith_ir_term  (89)
+	arith_ir_term : arith_ir_term . MULTIPLY app_ir_term  (90)
+	arith_ir_term : arith_ir_term . PROPOR arith_ir_term  (91)
+	arith_ir_term : arith_ir_term . PROPAND app_ir_term  (92)
+	arith_ir_term : arith_ir_term . EQ arith_ir_term TYPE_HINT app_ir_term  (95)
+
+	.  reduce 87
+
+
+state 94
+	atom_ir_term : LPARAN ir_term . RPARAN  (53)
+
+	RPARAN  shift 145
+	.  error
+
+
+state 95
+	atom_ir_term : MAX_COMP_KIND LPARAN . ir_term COMMA ir_term RPARAN  (68)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 146
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 96
+	arith_ir_term : FORALL IDENT . COLLON ir_term DOT arith_ir_term  (93)
+
+	COLLON  shift 147
+	.  error
+
+
+state 97
+	abs_ir_term : SLASH IDENT . COLLON ir_term DOT abs_ir_term  (97)
+
+	COLLON  shift 148
+	.  error
+
+
+state 98
+	atom_ir_term : KIND LSQBR . INT RSQBR  (63)
+
+	INT  shift 149
+	.  error
+
+
+state 99
+	atom_ir_term : REC LSQBR . ptr_list RSQBR LSQBR INT RSQBR  (67)
+
+	FN_PTR  shift 150
+	.  error
+
+	ptr_list  goto 151
+
+
+state 100
+	atom_ir_term : AND_INTRO LPARAN . ir_term COMMA ir_term RPARAN  (69)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 152
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 101
+	atom_ir_term : OR_INTRO_L LPARAN . ir_term COMMA ir_term RPARAN  (70)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 153
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 102
+	atom_ir_term : OR_INTRO_R LPARAN . ir_term COMMA ir_term RPARAN  (71)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 154
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 103
+	atom_ir_term : AND_ELIM_L LPARAN . ir_term COMMA ir_term RPARAN  (72)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 155
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 104
+	atom_ir_term : AND_ELIM_R LPARAN . ir_term COMMA ir_term RPARAN  (73)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 156
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 105
+	atom_ir_term : OR_ELIM LPARAN . ir_term COMMA ir_term COMMA ir_term RPARAN  (75)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 157
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 106
+	atom_ir_term : EQ_INTRO LPARAN . ir_term COMMA ir_term RPARAN  (74)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 158
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 107
+	atom_ir_term : EQ_ELIM LPARAN . ir_term COMMA ir_term COMMA ir_term RPARAN  (81)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 159
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 108
+	atom_ir_term : FALSE_ELIM_PROP LPARAN . ir_term COMMA ir_term RPARAN  (82)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 160
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 109
+	atom_ir_term : FALSE_ELIM_TYPE LPARAN . ir_term COMMA ir_term RPARAN  (83)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 161
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 110
+	atom_ir_term : FN_PTR_TYPE LSQBR . ir_term RSQBR  (76)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 162
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 111
+	atom_ir_term : DEREF_FN_PTR LSQBR . ir_term RSQBR  (77)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 163
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 112
+	atom_ir_term : atom_ir_term LANGLE . ir_term RANGLE  (66)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 164
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 113
+	arith_ir_term : app_ir_term ARROW . arith_ir_term  (94)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 165
+
+
+state 114
+	atom_ir_term : atom_ir_term . LANGLE ir_term RANGLE  (66)
+	app_ir_term : app_ir_term atom_ir_term .  (84)
+
+	LANGLE  shift 112
+	$end  reduce 84
+	TRUTH  reduce 84
+	FALSITY  reduce 84
+	INT  reduce 84
+	IDENT  reduce 84
+	FN_PTR  reduce 84
+	EQ  reduce 84
+	PLUS  reduce 84
+	MINUS  reduce 84
+	MULTIPLY  reduce 84
+	RANGLE  reduce 84
+	SEMICOLLON  reduce 84
+	LPARAN  reduce 84
+	RPARAN  reduce 84
+	RSQBR  reduce 84
+	ARROW  reduce 84
+	COMMA  reduce 84
+	INT_T  reduce 84
+	TYPE_HINT  reduce 84
+	PROPAND  reduce 84
+	PROPOR  reduce 84
+	TOTAL  reduce 84
+	DIVERGENT  reduce 84
+	MAX_COMP_KIND  reduce 84
+	DOT  reduce 84
+	PROPOSITION  reduce 84
+	TYPE  reduce 84
+	PRE_TYPE  reduce 84
+	KIND  reduce 84
+	COMPUTATION_KIND  reduce 84
+	PREDICATE  reduce 84
+	REC  reduce 84
+	AND_INTRO  reduce 84
+	OR_INTRO_L  reduce 84
+	OR_INTRO_R  reduce 84
+	AND_ELIM_L  reduce 84
+	AND_ELIM_R  reduce 84
+	OR_ELIM  reduce 84
+	EQ_INTRO  reduce 84
+	EQ_ELIM  reduce 84
+	FALSE_ELIM_PROP  reduce 84
+	FALSE_ELIM_TYPE  reduce 84
+	FN_PTR_TYPE  reduce 84
+	DEREF_FN_PTR  reduce 84
+	PROOF_OF_TRUTH  reduce 84
+
+
+state 115
+	arith_ir_term : arith_ir_term EQ . arith_ir_term TYPE_HINT app_ir_term  (95)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 166
+
+
+state 116
+	arith_ir_term : arith_ir_term PLUS . arith_ir_term  (88)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 167
+
+
+state 117
+	arith_ir_term : arith_ir_term MINUS . arith_ir_term  (89)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 168
+
+
+state 118
+	arith_ir_term : arith_ir_term MULTIPLY . app_ir_term  (90)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	atom_ir_term  goto 56
+	app_ir_term  goto 169
+
+
+state 119
+	arith_ir_term : arith_ir_term PROPAND . app_ir_term  (92)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	atom_ir_term  goto 56
+	app_ir_term  goto 170
+
+
+state 120
+	arith_ir_term : arith_ir_term PROPOR . arith_ir_term  (91)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 171
+
+
+state 121
+	ir_term : abs_ir_term SEMICOLLON . ir_term  (99)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 172
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 122
+	toplevel_precommand : AXIOM IDENT . COLLON ir_term  (105)
+
+	COLLON  shift 173
+	.  error
+
+
+state 123
+	toplevel_precommand : TC_IR_TERM ir_term .  (106)
+
+	.  reduce 106
+
+
+state 124
+	toplevel_precommand : IR_DEFINITION IDENT . def_args EQ ir_term  (107)
+
+	LPARAN  shift 174
+	.  error
+
+	def_arg  goto 175
+	def_args  goto 176
+
+
+state 125
+	toplevel_precommand : IR_PRINT_DEFINITION IDENT .  (108)
+
+	.  reduce 108
+
+
+state 126
+	toplevel_command : toplevel_precommand DOT .  (109)
+
+	.  reduce 109
+
+
+state 127
+	fn_def : FN IDENT LPARAN . fn_args RPARAN block  (4)
+	fn_def : FN IDENT LPARAN . fn_args RPARAN ARROW typ block  (5)
+	fn_args : .  (7)
+
+	IDENT  shift 177
+	RPARAN  reduce 7
+
+	fn_args  goto 178
+	fn_args_sub  goto 179
+	fn_arg  goto 180
+
+
+state 128
+	atom_expression : LPARAN expression RPARAN .  (31)
+
+	.  reduce 31
+
+
+state 129
+	statement : LET IDENT . EQ expression  (18)
+
+	EQ  shift 181
+	.  error
+
+
+state 130
+	statements : statement SEMICOLLON . statements  (20)
+	statements : statement SEMICOLLON .  (22)
+
+	INT  shift 12
+	IDENT  shift 13
+	LET  shift 77
+	MINUS  shift 14
+	LPARAN  shift 15
+	LBRACE  shift 16
+	IF  shift 17
+	RBRACE  reduce 22
+
+	expression  goto 78
+	block  goto 19
+	statement  goto 79
+	statements  goto 182
+	atom_expression  goto 20
+	ifthenelse  goto 21
+
+
+state 131
+	block : LBRACE maybe_statements RBRACE .  (25)
+
+	.  reduce 25
+
+
+state 132
+	ifthenelse : IF expression block . ELSE ifthenelse  (48)
+	ifthenelse : IF expression block . ELSE block  (49)
+	ifthenelse : IF expression block .  (50)
+
+	ELSE  shift 183
+	$end  reduce 50
+	PLUS  reduce 50
+	MINUS  reduce 50
+	MULTIPLY  reduce 50
+	DIVIDE  reduce 50
+	LANGLE  reduce 50
+	RANGLE  reduce 50
+	LANGLE_EQ  reduce 50
+	RANGLE_EQ  reduce 50
+	LONG_EQ  reduce 50
+	SEMICOLLON  reduce 50
+	LPARAN  reduce 50
+	RPARAN  reduce 50
+	LBRACE  reduce 50
+	RBRACE  reduce 50
+	COMMA  reduce 50
+
+
+state 133
+	expression : expression . PLUS expression  (33)
+	expression : expression PLUS expression .  (33)
+	expression : expression . MINUS expression  (34)
+	expression : expression . MULTIPLY atom_expression  (35)
+	expression : expression . DIVIDE expression  (36)
+	expression : expression . LANGLE expression  (37)
+	expression : expression . RANGLE expression  (38)
+	expression : expression . LANGLE_EQ expression  (39)
+	expression : expression . RANGLE_EQ expression  (40)
+	expression : expression . LONG_EQ expression  (41)
+
+	MULTIPLY  shift 85
+	DIVIDE  shift 86
+	$end  reduce 33
+	PLUS  reduce 33
+	MINUS  reduce 33
+	LANGLE  reduce 33
+	RANGLE  reduce 33
+	LANGLE_EQ  reduce 33
+	RANGLE_EQ  reduce 33
+	LONG_EQ  reduce 33
+	SEMICOLLON  reduce 33
+	RPARAN  reduce 33
+	LBRACE  reduce 33
+	RBRACE  reduce 33
+	COMMA  reduce 33
+
+
+state 134
+	expression : expression . PLUS expression  (33)
+	expression : expression . MINUS expression  (34)
+	expression : expression MINUS expression .  (34)
+	expression : expression . MULTIPLY atom_expression  (35)
+	expression : expression . DIVIDE expression  (36)
+	expression : expression . LANGLE expression  (37)
+	expression : expression . RANGLE expression  (38)
+	expression : expression . LANGLE_EQ expression  (39)
+	expression : expression . RANGLE_EQ expression  (40)
+	expression : expression . LONG_EQ expression  (41)
+
+	MULTIPLY  shift 85
+	DIVIDE  shift 86
+	$end  reduce 34
+	PLUS  reduce 34
+	MINUS  reduce 34
+	LANGLE  reduce 34
+	RANGLE  reduce 34
+	LANGLE_EQ  reduce 34
+	RANGLE_EQ  reduce 34
+	LONG_EQ  reduce 34
+	SEMICOLLON  reduce 34
+	RPARAN  reduce 34
+	LBRACE  reduce 34
+	RBRACE  reduce 34
+	COMMA  reduce 34
+
+
+state 135
+	atom_expression : atom_expression . LPARAN maybe_expressions RPARAN  (30)
+	expression : expression MULTIPLY atom_expression .  (35)
+
+	LPARAN  shift 92
+	$end  reduce 35
+	PLUS  reduce 35
+	MINUS  reduce 35
+	MULTIPLY  reduce 35
+	DIVIDE  reduce 35
+	LANGLE  reduce 35
+	RANGLE  reduce 35
+	LANGLE_EQ  reduce 35
+	RANGLE_EQ  reduce 35
+	LONG_EQ  reduce 35
+	SEMICOLLON  reduce 35
+	RPARAN  reduce 35
+	LBRACE  reduce 35
+	RBRACE  reduce 35
+	COMMA  reduce 35
+
+
+state 136
+	expression : expression . PLUS expression  (33)
+	expression : expression . MINUS expression  (34)
+	expression : expression . MULTIPLY atom_expression  (35)
+	expression : expression . DIVIDE expression  (36)
+	expression : expression DIVIDE expression .  (36)
+	expression : expression . LANGLE expression  (37)
+	expression : expression . RANGLE expression  (38)
+	expression : expression . LANGLE_EQ expression  (39)
+	expression : expression . RANGLE_EQ expression  (40)
+	expression : expression . LONG_EQ expression  (41)
+
+	.  reduce 36
+
+
+state 137
+	expression : expression . PLUS expression  (33)
+	expression : expression . MINUS expression  (34)
+	expression : expression . MULTIPLY atom_expression  (35)
+	expression : expression . DIVIDE expression  (36)
+	expression : expression . LANGLE expression  (37)
+	expression : expression LANGLE expression .  (37)
+	expression : expression . RANGLE expression  (38)
+	expression : expression . LANGLE_EQ expression  (39)
+	expression : expression . RANGLE_EQ expression  (40)
+	expression : expression . LONG_EQ expression  (41)
+
+	PLUS  shift 83
+	MINUS  shift 84
+	MULTIPLY  shift 85
+	DIVIDE  shift 86
+	$end  reduce 37
+	LONG_EQ  reduce 37
+	SEMICOLLON  reduce 37
+	RPARAN  reduce 37
+	LBRACE  reduce 37
+	RBRACE  reduce 37
+	COMMA  reduce 37
+
+
+state 138
+	expression : expression . PLUS expression  (33)
+	expression : expression . MINUS expression  (34)
+	expression : expression . MULTIPLY atom_expression  (35)
+	expression : expression . DIVIDE expression  (36)
+	expression : expression . LANGLE expression  (37)
+	expression : expression . RANGLE expression  (38)
+	expression : expression RANGLE expression .  (38)
+	expression : expression . LANGLE_EQ expression  (39)
+	expression : expression . RANGLE_EQ expression  (40)
+	expression : expression . LONG_EQ expression  (41)
+
+	PLUS  shift 83
+	MINUS  shift 84
+	MULTIPLY  shift 85
+	DIVIDE  shift 86
+	$end  reduce 38
+	LONG_EQ  reduce 38
+	SEMICOLLON  reduce 38
+	RPARAN  reduce 38
+	LBRACE  reduce 38
+	RBRACE  reduce 38
+	COMMA  reduce 38
+
+
+state 139
+	expression : expression . PLUS expression  (33)
+	expression : expression . MINUS expression  (34)
+	expression : expression . MULTIPLY atom_expression  (35)
+	expression : expression . DIVIDE expression  (36)
+	expression : expression . LANGLE expression  (37)
+	expression : expression . RANGLE expression  (38)
+	expression : expression . LANGLE_EQ expression  (39)
+	expression : expression LANGLE_EQ expression .  (39)
+	expression : expression . RANGLE_EQ expression  (40)
+	expression : expression . LONG_EQ expression  (41)
+
+	PLUS  shift 83
+	MINUS  shift 84
+	MULTIPLY  shift 85
+	DIVIDE  shift 86
+	$end  reduce 39
+	LONG_EQ  reduce 39
+	SEMICOLLON  reduce 39
+	RPARAN  reduce 39
+	LBRACE  reduce 39
+	RBRACE  reduce 39
+	COMMA  reduce 39
+
+
+state 140
+	expression : expression . PLUS expression  (33)
+	expression : expression . MINUS expression  (34)
+	expression : expression . MULTIPLY atom_expression  (35)
+	expression : expression . DIVIDE expression  (36)
+	expression : expression . LANGLE expression  (37)
+	expression : expression . RANGLE expression  (38)
+	expression : expression . LANGLE_EQ expression  (39)
+	expression : expression . RANGLE_EQ expression  (40)
+	expression : expression RANGLE_EQ expression .  (40)
+	expression : expression . LONG_EQ expression  (41)
+
+	PLUS  shift 83
+	MINUS  shift 84
+	MULTIPLY  shift 85
+	DIVIDE  shift 86
+	$end  reduce 40
+	LONG_EQ  reduce 40
+	SEMICOLLON  reduce 40
+	RPARAN  reduce 40
+	LBRACE  reduce 40
+	RBRACE  reduce 40
+	COMMA  reduce 40
+
+
+state 141
+	expression : expression . PLUS expression  (33)
+	expression : expression . MINUS expression  (34)
+	expression : expression . MULTIPLY atom_expression  (35)
+	expression : expression . DIVIDE expression  (36)
+	expression : expression . LANGLE expression  (37)
+	expression : expression . RANGLE expression  (38)
+	expression : expression . LANGLE_EQ expression  (39)
+	expression : expression . RANGLE_EQ expression  (40)
+	expression : expression . LONG_EQ expression  (41)
+	expression : expression LONG_EQ expression .  (41)
+
+	PLUS  shift 83
+	MINUS  shift 84
+	MULTIPLY  shift 85
+	DIVIDE  shift 86
+	LANGLE  shift 87
+	RANGLE  shift 88
+	LANGLE_EQ  shift 89
+	RANGLE_EQ  shift 90
+	$end  reduce 41
+	SEMICOLLON  reduce 41
+	RPARAN  reduce 41
+	LBRACE  reduce 41
+	RBRACE  reduce 41
+	COMMA  reduce 41
+
+
+state 142
+	expression : expression . PLUS expression  (33)
+	expression : expression . MINUS expression  (34)
+	expression : expression . MULTIPLY atom_expression  (35)
+	expression : expression . DIVIDE expression  (36)
+	expression : expression . LANGLE expression  (37)
+	expression : expression . RANGLE expression  (38)
+	expression : expression . LANGLE_EQ expression  (39)
+	expression : expression . RANGLE_EQ expression  (40)
+	expression : expression . LONG_EQ expression  (41)
+	expressions : expression . COMMA expressions  (46)
+	expressions : expression .  (47)
+
+	PLUS  shift 83
+	MINUS  shift 84
+	MULTIPLY  shift 85
+	DIVIDE  shift 86
+	LANGLE  shift 87
+	RANGLE  shift 88
+	LANGLE_EQ  shift 89
+	RANGLE_EQ  shift 90
+	LONG_EQ  shift 91
+	COMMA  shift 184
+	RPARAN  reduce 47
+
+
+state 143
+	atom_expression : atom_expression LPARAN maybe_expressions . RPARAN  (30)
+
+	RPARAN  shift 185
+	.  error
+
+
+state 144
+	maybe_expressions : expressions .  (45)
+
+	.  reduce 45
+
+
+state 145
+	atom_ir_term : LPARAN ir_term RPARAN .  (53)
+
+	.  reduce 53
+
+
+state 146
+	atom_ir_term : MAX_COMP_KIND LPARAN ir_term . COMMA ir_term RPARAN  (68)
+
+	COMMA  shift 186
+	.  error
+
+
+state 147
+	arith_ir_term : FORALL IDENT COLLON . ir_term DOT arith_ir_term  (93)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 187
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 148
+	abs_ir_term : SLASH IDENT COLLON . ir_term DOT abs_ir_term  (97)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 188
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 149
+	atom_ir_term : KIND LSQBR INT . RSQBR  (63)
+
+	RSQBR  shift 189
+	.  error
+
+
+state 150
+	ptr_list : FN_PTR .  (51)
+	ptr_list : FN_PTR . COMMA ptr_list  (52)
+
+	COMMA  shift 190
+	RSQBR  reduce 51
+
+
+state 151
+	atom_ir_term : REC LSQBR ptr_list . RSQBR LSQBR INT RSQBR  (67)
+
+	RSQBR  shift 191
+	.  error
+
+
+state 152
+	atom_ir_term : AND_INTRO LPARAN ir_term . COMMA ir_term RPARAN  (69)
+
+	COMMA  shift 192
+	.  error
+
+
+state 153
+	atom_ir_term : OR_INTRO_L LPARAN ir_term . COMMA ir_term RPARAN  (70)
+
+	COMMA  shift 193
+	.  error
+
+
+state 154
+	atom_ir_term : OR_INTRO_R LPARAN ir_term . COMMA ir_term RPARAN  (71)
+
+	COMMA  shift 194
+	.  error
+
+
+state 155
+	atom_ir_term : AND_ELIM_L LPARAN ir_term . COMMA ir_term RPARAN  (72)
+
+	COMMA  shift 195
+	.  error
+
+
+state 156
+	atom_ir_term : AND_ELIM_R LPARAN ir_term . COMMA ir_term RPARAN  (73)
+
+	COMMA  shift 196
+	.  error
+
+
+state 157
+	atom_ir_term : OR_ELIM LPARAN ir_term . COMMA ir_term COMMA ir_term RPARAN  (75)
+
+	COMMA  shift 197
+	.  error
+
+
+state 158
+	atom_ir_term : EQ_INTRO LPARAN ir_term . COMMA ir_term RPARAN  (74)
+
+	COMMA  shift 198
+	.  error
+
+
+state 159
+	atom_ir_term : EQ_ELIM LPARAN ir_term . COMMA ir_term COMMA ir_term RPARAN  (81)
+
+	COMMA  shift 199
+	.  error
+
+
+state 160
+	atom_ir_term : FALSE_ELIM_PROP LPARAN ir_term . COMMA ir_term RPARAN  (82)
+
+	COMMA  shift 200
+	.  error
+
+
+state 161
+	atom_ir_term : FALSE_ELIM_TYPE LPARAN ir_term . COMMA ir_term RPARAN  (83)
+
+	COMMA  shift 201
+	.  error
+
+
+state 162
+	atom_ir_term : FN_PTR_TYPE LSQBR ir_term . RSQBR  (76)
+
+	RSQBR  shift 202
+	.  error
+
+
+state 163
+	atom_ir_term : DEREF_FN_PTR LSQBR ir_term . RSQBR  (77)
+
+	RSQBR  shift 203
+	.  error
+
+
+state 164
+	atom_ir_term : atom_ir_term LANGLE ir_term . RANGLE  (66)
+
+	RANGLE  shift 204
+	.  error
+
+
+state 165
+	arith_ir_term : arith_ir_term . PLUS arith_ir_term  (88)
+	arith_ir_term : arith_ir_term . MINUS arith_ir_term  (89)
+	arith_ir_term : arith_ir_term . MULTIPLY app_ir_term  (90)
+	arith_ir_term : arith_ir_term . PROPOR arith_ir_term  (91)
+	arith_ir_term : arith_ir_term . PROPAND app_ir_term  (92)
+	arith_ir_term : app_ir_term ARROW arith_ir_term .  (94)
+	arith_ir_term : arith_ir_term . EQ arith_ir_term TYPE_HINT app_ir_term  (95)
+
+	PLUS  shift 116
+	MINUS  shift 117
+	MULTIPLY  shift 118
+	PROPAND  shift 119
+	PROPOR  shift 120
+	$end  reduce 94
+	EQ  reduce 94
+	RANGLE  reduce 94
+	SEMICOLLON  reduce 94
+	RPARAN  reduce 94
+	RSQBR  reduce 94
+	COMMA  reduce 94
+	TYPE_HINT  reduce 94
+	DOT  reduce 94
+
+
+state 166
+	arith_ir_term : arith_ir_term . PLUS arith_ir_term  (88)
+	arith_ir_term : arith_ir_term . MINUS arith_ir_term  (89)
+	arith_ir_term : arith_ir_term . MULTIPLY app_ir_term  (90)
+	arith_ir_term : arith_ir_term . PROPOR arith_ir_term  (91)
+	arith_ir_term : arith_ir_term . PROPAND app_ir_term  (92)
+	arith_ir_term : arith_ir_term . EQ arith_ir_term TYPE_HINT app_ir_term  (95)
+	arith_ir_term : arith_ir_term EQ arith_ir_term . TYPE_HINT app_ir_term  (95)
+
+	EQ  shift 115
+	PLUS  shift 116
+	MINUS  shift 117
+	MULTIPLY  shift 118
+	TYPE_HINT  shift 205
+	PROPAND  shift 119
+	PROPOR  shift 120
+	.  error
+
+
+state 167
+	arith_ir_term : arith_ir_term . PLUS arith_ir_term  (88)
+	arith_ir_term : arith_ir_term PLUS arith_ir_term .  (88)
+	arith_ir_term : arith_ir_term . MINUS arith_ir_term  (89)
+	arith_ir_term : arith_ir_term . MULTIPLY app_ir_term  (90)
+	arith_ir_term : arith_ir_term . PROPOR arith_ir_term  (91)
+	arith_ir_term : arith_ir_term . PROPAND app_ir_term  (92)
+	arith_ir_term : arith_ir_term . EQ arith_ir_term TYPE_HINT app_ir_term  (95)
+
+	MULTIPLY  shift 118
+	$end  reduce 88
+	EQ  reduce 88
+	PLUS  reduce 88
+	MINUS  reduce 88
+	RANGLE  reduce 88
+	SEMICOLLON  reduce 88
+	RPARAN  reduce 88
+	RSQBR  reduce 88
+	COMMA  reduce 88
+	TYPE_HINT  reduce 88
+	PROPAND  reduce 88
+	PROPOR  reduce 88
+	DOT  reduce 88
+
+
+state 168
+	arith_ir_term : arith_ir_term . PLUS arith_ir_term  (88)
+	arith_ir_term : arith_ir_term . MINUS arith_ir_term  (89)
+	arith_ir_term : arith_ir_term MINUS arith_ir_term .  (89)
+	arith_ir_term : arith_ir_term . MULTIPLY app_ir_term  (90)
+	arith_ir_term : arith_ir_term . PROPOR arith_ir_term  (91)
+	arith_ir_term : arith_ir_term . PROPAND app_ir_term  (92)
+	arith_ir_term : arith_ir_term . EQ arith_ir_term TYPE_HINT app_ir_term  (95)
+
+	MULTIPLY  shift 118
+	$end  reduce 89
+	EQ  reduce 89
+	PLUS  reduce 89
+	MINUS  reduce 89
+	RANGLE  reduce 89
+	SEMICOLLON  reduce 89
+	RPARAN  reduce 89
+	RSQBR  reduce 89
+	COMMA  reduce 89
+	TYPE_HINT  reduce 89
+	PROPAND  reduce 89
+	PROPOR  reduce 89
+	DOT  reduce 89
+
+
+state 169
+	app_ir_term : app_ir_term . atom_ir_term  (84)
+	arith_ir_term : arith_ir_term MULTIPLY app_ir_term .  (90)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	$end  reduce 90
+	EQ  reduce 90
+	PLUS  reduce 90
+	MINUS  reduce 90
+	MULTIPLY  reduce 90
+	RANGLE  reduce 90
+	SEMICOLLON  reduce 90
+	RPARAN  reduce 90
+	RSQBR  reduce 90
+	COMMA  reduce 90
+	TYPE_HINT  reduce 90
+	PROPAND  reduce 90
+	PROPOR  reduce 90
+	DOT  reduce 90
+
+	atom_ir_term  goto 114
+
+
+state 170
+	app_ir_term : app_ir_term . atom_ir_term  (84)
+	arith_ir_term : arith_ir_term PROPAND app_ir_term .  (92)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	$end  reduce 92
+	EQ  reduce 92
+	PLUS  reduce 92
+	MINUS  reduce 92
+	MULTIPLY  reduce 92
+	RANGLE  reduce 92
+	SEMICOLLON  reduce 92
+	RPARAN  reduce 92
+	RSQBR  reduce 92
+	COMMA  reduce 92
+	TYPE_HINT  reduce 92
+	PROPAND  reduce 92
+	PROPOR  reduce 92
+	DOT  reduce 92
+
+	atom_ir_term  goto 114
+
+
+state 171
+	arith_ir_term : arith_ir_term . PLUS arith_ir_term  (88)
+	arith_ir_term : arith_ir_term . MINUS arith_ir_term  (89)
+	arith_ir_term : arith_ir_term . MULTIPLY app_ir_term  (90)
+	arith_ir_term : arith_ir_term . PROPOR arith_ir_term  (91)
+	arith_ir_term : arith_ir_term PROPOR arith_ir_term .  (91)
+	arith_ir_term : arith_ir_term . PROPAND app_ir_term  (92)
+	arith_ir_term : arith_ir_term . EQ arith_ir_term TYPE_HINT app_ir_term  (95)
+
+	PLUS  shift 116
+	MINUS  shift 117
+	MULTIPLY  shift 118
+	PROPAND  shift 119
+	$end  reduce 91
+	EQ  reduce 91
+	RANGLE  reduce 91
+	SEMICOLLON  reduce 91
+	RPARAN  reduce 91
+	RSQBR  reduce 91
+	COMMA  reduce 91
+	TYPE_HINT  reduce 91
+	PROPOR  reduce 91
+	DOT  reduce 91
+
+
+state 172
+	ir_term : abs_ir_term SEMICOLLON ir_term .  (99)
+
+	.  reduce 99
+
+
+state 173
+	toplevel_precommand : AXIOM IDENT COLLON . ir_term  (105)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 206
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 174
+	def_arg : LPARAN . IDENT COLLON ir_term RPARAN  (100)
+
+	IDENT  shift 207
+	.  error
+
+
+state 175
+	def_args : def_arg . def_args  (101)
+	def_args : def_arg .  (102)
+
+	LPARAN  shift 174
+	EQ  reduce 102
+
+	def_arg  goto 175
+	def_args  goto 208
+
+
+state 176
+	toplevel_precommand : IR_DEFINITION IDENT def_args . EQ ir_term  (107)
+
+	EQ  shift 209
+	.  error
+
+
+state 177
+	fn_arg : IDENT . COLLON typ  (10)
+
+	COLLON  shift 210
+	.  error
+
+
+state 178
+	fn_def : FN IDENT LPARAN fn_args . RPARAN block  (4)
+	fn_def : FN IDENT LPARAN fn_args . RPARAN ARROW typ block  (5)
+
+	RPARAN  shift 211
+	.  error
+
+
+state 179
+	fn_args : fn_args_sub .  (6)
+
+	.  reduce 6
+
+
+state 180
+	fn_args_sub : fn_arg . COMMA fn_args_sub  (8)
+	fn_args_sub : fn_arg .  (9)
+
+	COMMA  shift 212
+	RPARAN  reduce 9
+
+
+state 181
+	statement : LET IDENT EQ . expression  (18)
+
+	INT  shift 12
+	IDENT  shift 13
+	MINUS  shift 14
+	LPARAN  shift 15
+	LBRACE  shift 16
+	IF  shift 17
+	.  error
+
+	expression  goto 213
+	block  goto 19
+	atom_expression  goto 20
+	ifthenelse  goto 21
+
+
+state 182
+	statements : statement SEMICOLLON statements .  (20)
+
+	.  reduce 20
+
+
+state 183
+	ifthenelse : IF expression block ELSE . ifthenelse  (48)
+	ifthenelse : IF expression block ELSE . block  (49)
+
+	LBRACE  shift 16
+	IF  shift 17
+	.  error
+
+	block  goto 214
+	ifthenelse  goto 215
+
+
+state 184
+	expressions : expression COMMA . expressions  (46)
+
+	INT  shift 12
+	IDENT  shift 13
+	MINUS  shift 14
+	LPARAN  shift 15
+	LBRACE  shift 16
+	IF  shift 17
+	.  error
+
+	expression  goto 142
+	block  goto 19
+	atom_expression  goto 20
+	ifthenelse  goto 21
+	expressions  goto 216
+
+
+state 185
+	atom_expression : atom_expression LPARAN maybe_expressions RPARAN .  (30)
+
+	.  reduce 30
+
+
+state 186
+	atom_ir_term : MAX_COMP_KIND LPARAN ir_term COMMA . ir_term RPARAN  (68)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 217
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 187
+	arith_ir_term : FORALL IDENT COLLON ir_term . DOT arith_ir_term  (93)
+
+	DOT  shift 218
+	.  error
+
+
+state 188
+	abs_ir_term : SLASH IDENT COLLON ir_term . DOT abs_ir_term  (97)
+
+	DOT  shift 219
+	.  error
+
+
+state 189
+	atom_ir_term : KIND LSQBR INT RSQBR .  (63)
+
+	.  reduce 63
+
+
+state 190
+	ptr_list : FN_PTR COMMA . ptr_list  (52)
+
+	FN_PTR  shift 150
+	.  error
+
+	ptr_list  goto 220
+
+
+state 191
+	atom_ir_term : REC LSQBR ptr_list RSQBR . LSQBR INT RSQBR  (67)
+
+	LSQBR  shift 221
+	.  error
+
+
+state 192
+	atom_ir_term : AND_INTRO LPARAN ir_term COMMA . ir_term RPARAN  (69)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 222
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 193
+	atom_ir_term : OR_INTRO_L LPARAN ir_term COMMA . ir_term RPARAN  (70)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 223
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 194
+	atom_ir_term : OR_INTRO_R LPARAN ir_term COMMA . ir_term RPARAN  (71)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 224
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 195
+	atom_ir_term : AND_ELIM_L LPARAN ir_term COMMA . ir_term RPARAN  (72)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 225
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 196
+	atom_ir_term : AND_ELIM_R LPARAN ir_term COMMA . ir_term RPARAN  (73)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 226
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 197
+	atom_ir_term : OR_ELIM LPARAN ir_term COMMA . ir_term COMMA ir_term RPARAN  (75)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 227
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 198
+	atom_ir_term : EQ_INTRO LPARAN ir_term COMMA . ir_term RPARAN  (74)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 228
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 199
+	atom_ir_term : EQ_ELIM LPARAN ir_term COMMA . ir_term COMMA ir_term RPARAN  (81)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 229
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 200
+	atom_ir_term : FALSE_ELIM_PROP LPARAN ir_term COMMA . ir_term RPARAN  (82)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 230
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 201
+	atom_ir_term : FALSE_ELIM_TYPE LPARAN ir_term COMMA . ir_term RPARAN  (83)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 231
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 202
+	atom_ir_term : FN_PTR_TYPE LSQBR ir_term RSQBR .  (76)
+
+	.  reduce 76
+
+
+state 203
+	atom_ir_term : DEREF_FN_PTR LSQBR ir_term RSQBR .  (77)
+
+	.  reduce 77
+
+
+state 204
+	atom_ir_term : atom_ir_term LANGLE ir_term RANGLE .  (66)
+
+	.  reduce 66
+
+
+state 205
+	arith_ir_term : arith_ir_term EQ arith_ir_term TYPE_HINT . app_ir_term  (95)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	atom_ir_term  goto 56
+	app_ir_term  goto 232
+
+
+state 206
+	toplevel_precommand : AXIOM IDENT COLLON ir_term .  (105)
+
+	.  reduce 105
+
+
+state 207
+	def_arg : LPARAN IDENT . COLLON ir_term RPARAN  (100)
+
+	COLLON  shift 233
+	.  error
+
+
+state 208
+	def_args : def_arg def_args .  (101)
+
+	.  reduce 101
+
+
+state 209
+	toplevel_precommand : IR_DEFINITION IDENT def_args EQ . ir_term  (107)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 234
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 210
+	fn_arg : IDENT COLLON . typ  (10)
+
+	LPARAN  shift 235
+	FN  shift 236
+	INT_T  shift 237
+	.  error
+
+	typ  goto 238
+
+
+state 211
+	fn_def : FN IDENT LPARAN fn_args RPARAN . block  (4)
+	fn_def : FN IDENT LPARAN fn_args RPARAN . ARROW typ block  (5)
+
+	LBRACE  shift 16
+	ARROW  shift 239
+	.  error
+
+	block  goto 240
+
+
+state 212
+	fn_args_sub : fn_arg COMMA . fn_args_sub  (8)
+
+	IDENT  shift 177
+	.  error
+
+	fn_args_sub  goto 241
+	fn_arg  goto 180
+
+
+state 213
+	statement : LET IDENT EQ expression .  (18)
+	expression : expression . PLUS expression  (33)
+	expression : expression . MINUS expression  (34)
+	expression : expression . MULTIPLY atom_expression  (35)
+	expression : expression . DIVIDE expression  (36)
+	expression : expression . LANGLE expression  (37)
+	expression : expression . RANGLE expression  (38)
+	expression : expression . LANGLE_EQ expression  (39)
+	expression : expression . RANGLE_EQ expression  (40)
+	expression : expression . LONG_EQ expression  (41)
+
+	PLUS  shift 83
+	MINUS  shift 84
+	MULTIPLY  shift 85
+	DIVIDE  shift 86
+	LANGLE  shift 87
+	RANGLE  shift 88
+	LANGLE_EQ  shift 89
+	RANGLE_EQ  shift 90
+	LONG_EQ  shift 91
+	SEMICOLLON  reduce 18
+	RBRACE  reduce 18
+
+
+state 214
+	ifthenelse : IF expression block ELSE block .  (49)
+
+	.  reduce 49
+
+
+state 215
+	ifthenelse : IF expression block ELSE ifthenelse .  (48)
+
+	.  reduce 48
+
+
+state 216
+	expressions : expression COMMA expressions .  (46)
+
+	.  reduce 46
+
+
+state 217
+	atom_ir_term : MAX_COMP_KIND LPARAN ir_term COMMA ir_term . RPARAN  (68)
+
+	RPARAN  shift 242
+	.  error
+
+
+state 218
+	arith_ir_term : FORALL IDENT COLLON ir_term DOT . arith_ir_term  (93)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 243
+
+
+state 219
+	abs_ir_term : SLASH IDENT COLLON ir_term DOT . abs_ir_term  (97)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 244
+
+
+state 220
+	ptr_list : FN_PTR COMMA ptr_list .  (52)
+
+	.  reduce 52
+
+
+state 221
+	atom_ir_term : REC LSQBR ptr_list RSQBR LSQBR . INT RSQBR  (67)
+
+	INT  shift 245
+	.  error
+
+
+state 222
+	atom_ir_term : AND_INTRO LPARAN ir_term COMMA ir_term . RPARAN  (69)
+
+	RPARAN  shift 246
+	.  error
+
+
+state 223
+	atom_ir_term : OR_INTRO_L LPARAN ir_term COMMA ir_term . RPARAN  (70)
+
+	RPARAN  shift 247
+	.  error
+
+
+state 224
+	atom_ir_term : OR_INTRO_R LPARAN ir_term COMMA ir_term . RPARAN  (71)
+
+	RPARAN  shift 248
+	.  error
+
+
+state 225
+	atom_ir_term : AND_ELIM_L LPARAN ir_term COMMA ir_term . RPARAN  (72)
+
+	RPARAN  shift 249
+	.  error
+
+
+state 226
+	atom_ir_term : AND_ELIM_R LPARAN ir_term COMMA ir_term . RPARAN  (73)
+
+	RPARAN  shift 250
+	.  error
+
+
+state 227
+	atom_ir_term : OR_ELIM LPARAN ir_term COMMA ir_term . COMMA ir_term RPARAN  (75)
+
+	COMMA  shift 251
+	.  error
+
+
+state 228
+	atom_ir_term : EQ_INTRO LPARAN ir_term COMMA ir_term . RPARAN  (74)
+
+	RPARAN  shift 252
+	.  error
+
+
+state 229
+	atom_ir_term : EQ_ELIM LPARAN ir_term COMMA ir_term . COMMA ir_term RPARAN  (81)
+
+	COMMA  shift 253
+	.  error
+
+
+state 230
+	atom_ir_term : FALSE_ELIM_PROP LPARAN ir_term COMMA ir_term . RPARAN  (82)
+
+	RPARAN  shift 254
+	.  error
+
+
+state 231
+	atom_ir_term : FALSE_ELIM_TYPE LPARAN ir_term COMMA ir_term . RPARAN  (83)
+
+	RPARAN  shift 255
+	.  error
+
+
+state 232
+	app_ir_term : app_ir_term . atom_ir_term  (84)
+	arith_ir_term : arith_ir_term EQ arith_ir_term TYPE_HINT app_ir_term .  (95)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	$end  reduce 95
+	EQ  reduce 95
+	PLUS  reduce 95
+	MINUS  reduce 95
+	MULTIPLY  reduce 95
+	RANGLE  reduce 95
+	SEMICOLLON  reduce 95
+	RPARAN  reduce 95
+	RSQBR  reduce 95
+	COMMA  reduce 95
+	TYPE_HINT  reduce 95
+	PROPAND  reduce 95
+	PROPOR  reduce 95
+	DOT  reduce 95
+
+	atom_ir_term  goto 114
+
+
+state 233
+	def_arg : LPARAN IDENT COLLON . ir_term RPARAN  (100)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 256
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 234
+	toplevel_precommand : IR_DEFINITION IDENT def_args EQ ir_term .  (107)
+
+	.  reduce 107
+
+
+state 235
+	typ : LPARAN . RPARAN  (11)
+
+	RPARAN  shift 257
+	.  error
+
+
+state 236
+	typ : FN . LPARAN maybe_typs RPARAN ARROW typ  (13)
+
+	LPARAN  shift 258
+	.  error
+
+
+state 237
+	typ : INT_T .  (12)
+
+	.  reduce 12
+
+
+state 238
+	fn_arg : IDENT COLLON typ .  (10)
+
+	.  reduce 10
+
+
+state 239
+	fn_def : FN IDENT LPARAN fn_args RPARAN ARROW . typ block  (5)
+
+	LPARAN  shift 235
+	FN  shift 236
+	INT_T  shift 237
+	.  error
+
+	typ  goto 259
+
+
+state 240
+	fn_def : FN IDENT LPARAN fn_args RPARAN block .  (4)
+
+	.  reduce 4
+
+
+state 241
+	fn_args_sub : fn_arg COMMA fn_args_sub .  (8)
+
+	.  reduce 8
+
+
+state 242
+	atom_ir_term : MAX_COMP_KIND LPARAN ir_term COMMA ir_term RPARAN .  (68)
+
+	.  reduce 68
+
+
+state 243
+	arith_ir_term : arith_ir_term . PLUS arith_ir_term  (88)
+	arith_ir_term : arith_ir_term . MINUS arith_ir_term  (89)
+	arith_ir_term : arith_ir_term . MULTIPLY app_ir_term  (90)
+	arith_ir_term : arith_ir_term . PROPOR arith_ir_term  (91)
+	arith_ir_term : arith_ir_term . PROPAND app_ir_term  (92)
+	arith_ir_term : FORALL IDENT COLLON ir_term DOT arith_ir_term .  (93)
+	arith_ir_term : arith_ir_term . EQ arith_ir_term TYPE_HINT app_ir_term  (95)
+
+	PLUS  shift 116
+	MINUS  shift 117
+	MULTIPLY  shift 118
+	PROPAND  shift 119
+	PROPOR  shift 120
+	$end  reduce 93
+	EQ  reduce 93
+	RANGLE  reduce 93
+	SEMICOLLON  reduce 93
+	RPARAN  reduce 93
+	RSQBR  reduce 93
+	COMMA  reduce 93
+	TYPE_HINT  reduce 93
+	DOT  reduce 93
+
+
+state 244
+	abs_ir_term : SLASH IDENT COLLON ir_term DOT abs_ir_term .  (97)
+
+	.  reduce 97
+
+
+state 245
+	atom_ir_term : REC LSQBR ptr_list RSQBR LSQBR INT . RSQBR  (67)
+
+	RSQBR  shift 260
+	.  error
+
+
+state 246
+	atom_ir_term : AND_INTRO LPARAN ir_term COMMA ir_term RPARAN .  (69)
+
+	.  reduce 69
+
+
+state 247
+	atom_ir_term : OR_INTRO_L LPARAN ir_term COMMA ir_term RPARAN .  (70)
+
+	.  reduce 70
+
+
+state 248
+	atom_ir_term : OR_INTRO_R LPARAN ir_term COMMA ir_term RPARAN .  (71)
+
+	.  reduce 71
+
+
+state 249
+	atom_ir_term : AND_ELIM_L LPARAN ir_term COMMA ir_term RPARAN .  (72)
+
+	.  reduce 72
+
+
+state 250
+	atom_ir_term : AND_ELIM_R LPARAN ir_term COMMA ir_term RPARAN .  (73)
+
+	.  reduce 73
+
+
+state 251
+	atom_ir_term : OR_ELIM LPARAN ir_term COMMA ir_term COMMA . ir_term RPARAN  (75)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 261
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 252
+	atom_ir_term : EQ_INTRO LPARAN ir_term COMMA ir_term RPARAN .  (74)
+
+	.  reduce 74
+
+
+state 253
+	atom_ir_term : EQ_ELIM LPARAN ir_term COMMA ir_term COMMA . ir_term RPARAN  (81)
+
+	TRUTH  shift 22
+	FALSITY  shift 23
+	INT  shift 24
+	IDENT  shift 25
+	FN_PTR  shift 26
+	MINUS  shift 27
+	LPARAN  shift 28
+	INT_T  shift 29
+	TOTAL  shift 30
+	DIVERGENT  shift 31
+	MAX_COMP_KIND  shift 32
+	FORALL  shift 33
+	SLASH  shift 34
+	PROPOSITION  shift 35
+	TYPE  shift 36
+	PRE_TYPE  shift 37
+	KIND  shift 38
+	COMPUTATION_KIND  shift 39
+	PREDICATE  shift 40
+	REC  shift 41
+	AND_INTRO  shift 42
+	OR_INTRO_L  shift 43
+	OR_INTRO_R  shift 44
+	AND_ELIM_L  shift 45
+	AND_ELIM_R  shift 46
+	OR_ELIM  shift 47
+	EQ_INTRO  shift 48
+	EQ_ELIM  shift 49
+	FALSE_ELIM_PROP  shift 50
+	FALSE_ELIM_TYPE  shift 51
+	FN_PTR_TYPE  shift 52
+	DEREF_FN_PTR  shift 53
+	PROOF_OF_TRUTH  shift 54
+	.  error
+
+	ir_term  goto 262
+	atom_ir_term  goto 56
+	app_ir_term  goto 57
+	arith_ir_term  goto 58
+	abs_ir_term  goto 59
+
+
+state 254
+	atom_ir_term : FALSE_ELIM_PROP LPARAN ir_term COMMA ir_term RPARAN .  (82)
+
+	.  reduce 82
+
+
+state 255
+	atom_ir_term : FALSE_ELIM_TYPE LPARAN ir_term COMMA ir_term RPARAN .  (83)
+
+	.  reduce 83
+
+
+state 256
+	def_arg : LPARAN IDENT COLLON ir_term . RPARAN  (100)
+
+	RPARAN  shift 263
+	.  error
+
+
+state 257
+	typ : LPARAN RPARAN .  (11)
+
+	.  reduce 11
+
+
+state 258
+	typ : FN LPARAN . maybe_typs RPARAN ARROW typ  (13)
+	maybe_typs : .  (15)
+
+	LPARAN  shift 235
+	FN  shift 236
+	INT_T  shift 237
+	RPARAN  reduce 15
+
+	typ  goto 264
+	maybe_typs  goto 265
+	typs  goto 266
+
+
+state 259
+	fn_def : FN IDENT LPARAN fn_args RPARAN ARROW typ . block  (5)
+
+	LBRACE  shift 16
+	.  error
+
+	block  goto 267
+
+
+state 260
+	atom_ir_term : REC LSQBR ptr_list RSQBR LSQBR INT RSQBR .  (67)
+
+	.  reduce 67
+
+
+state 261
+	atom_ir_term : OR_ELIM LPARAN ir_term COMMA ir_term COMMA ir_term . RPARAN  (75)
+
+	RPARAN  shift 268
+	.  error
+
+
+state 262
+	atom_ir_term : EQ_ELIM LPARAN ir_term COMMA ir_term COMMA ir_term . RPARAN  (81)
+
+	RPARAN  shift 269
+	.  error
+
+
+state 263
+	def_arg : LPARAN IDENT COLLON ir_term RPARAN .  (100)
+
+	.  reduce 100
+
+
+state 264
+	typs : typ . COMMA typs  (16)
+	typs : typ .  (17)
+
+	COMMA  shift 270
+	RPARAN  reduce 17
+
+
+state 265
+	typ : FN LPARAN maybe_typs . RPARAN ARROW typ  (13)
+
+	RPARAN  shift 271
+	.  error
+
+
+state 266
+	maybe_typs : typs .  (14)
+
+	.  reduce 14
+
+
+state 267
+	fn_def : FN IDENT LPARAN fn_args RPARAN ARROW typ block .  (5)
+
+	.  reduce 5
+
+
+state 268
+	atom_ir_term : OR_ELIM LPARAN ir_term COMMA ir_term COMMA ir_term RPARAN .  (75)
+
+	.  reduce 75
+
+
+state 269
+	atom_ir_term : EQ_ELIM LPARAN ir_term COMMA ir_term COMMA ir_term RPARAN .  (81)
+
+	.  reduce 81
+
+
+state 270
+	typs : typ COMMA . typs  (16)
+
+	LPARAN  shift 235
+	FN  shift 236
+	INT_T  shift 237
+	.  error
+
+	typ  goto 264
+	typs  goto 272
+
+
+state 271
+	typ : FN LPARAN maybe_typs RPARAN . ARROW typ  (13)
+
+	ARROW  shift 273
+	.  error
+
+
+state 272
+	typs : typ COMMA typs .  (16)
+
+	.  reduce 16
+
+
+state 273
+	typ : FN LPARAN maybe_typs RPARAN ARROW . typ  (13)
+
+	LPARAN  shift 235
+	FN  shift 236
+	INT_T  shift 237
+	.  error
+
+	typ  goto 274
+
+
+state 274
+	typ : FN LPARAN maybe_typs RPARAN ARROW typ .  (13)
+
+	.  reduce 13
+
+
+83 terminals, 30 nonterminals
+117 grammar rules, 275 states

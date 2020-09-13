@@ -1,0 +1,10 @@
+opam-version: "2.0"
+synopsis: "/home/innocentus/Ocaml/TRust"
+opam-root: "/home/innocentus/.opam"
+paths {
+  
+}
+variables {
+  user: "innocentus"
+  group: "innocentus"
+}

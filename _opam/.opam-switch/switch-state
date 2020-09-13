@@ -1,0 +1,18 @@
+opam-version: "2.0"
+compiler: [
+  "base-bigarray.base"
+  "base-threads.base"
+  "base-unix.base"
+  "ocaml.4.08.1"
+  "ocaml-config.1"
+  "ocaml-system.4.08.1"
+]
+roots: ["ocaml-system.4.08.1"]
+installed: [
+  "base-bigarray.base"
+  "base-threads.base"
+  "base-unix.base"
+  "ocaml.4.08.1"
+  "ocaml-config.1"
+  "ocaml-system.4.08.1"
+]

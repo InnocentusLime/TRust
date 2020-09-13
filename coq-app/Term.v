@@ -1,0 +1,1 @@
+Require Import Nbu.Coc.Termes.

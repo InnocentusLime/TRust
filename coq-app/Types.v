@@ -3677,6 +3677,235 @@ Qed.
     apply type_conv with Tx set; auto with coc core datatypes.
     apply type_nat; eapply typ_wf; eauto with coc core datatypes.
 
+    (* NatRec *)
+    inversion H8.
+    subst choice; subst on_zero; subst on_succ; subst num; subst u.
+    apply type_conv with (App choice' x4) set.
+    apply type_nat_rec; auto with coc core datatypes.
+    apply type_conv with (App x1 NatO) set; auto with coc core datatypes.
+    change (Srt set) with (subst NatO (Srt set)).
+    apply type_app with Nat; auto with coc core datatypes.
+    apply type_nat_o; eapply typ_wf; eauto with coc core datatypes.
+    apply type_conv with (
+      Prod Nat
+          (Prod (App (lift 1 x1) (Ref 0)) (App (lift 2 x1) (NatSucc (Ref 1))))
+    ) set; auto with coc core datatypes.
+    assert (red x1 choice') by auto with coc core datatypes.
+    apply red_conv.
+    unfold lift.
+    auto 12 with coc core arith datatypes.
+    assert (typ e0 Nat (Srt set)) by (apply type_nat; eapply typ_wf; eauto with coc core datatypes).
+    assert (wf (Nat :: e0)) by (apply wf_var with set; auto with coc core datatypes).
+    assert (typ (Nat :: e0) (App (lift 1 choice') (Ref 0)) (Srt set)).
+    change (Srt set) with (subst (Ref 0) (Srt set)); apply type_app with Nat.
+    apply type_var; auto with coc core arith sets datatypes.
+    unfold item_lift; exists Nat; auto with coc core arith sets datatypes.
+    change (Prod Nat (Srt set)) with (lift 1 (Prod Nat (Srt set))).
+    apply thinning; auto with coc core datatypes.
+    assert (wf ((App (lift 1 choice') (Ref 0)) :: Nat :: e0)) by (apply wf_var with set; auto with coc core datatypes).
+    apply type_prod with set; auto with coc core datatypes.
+    apply type_prod with set; auto with coc core datatypes.
+    change (Srt set) with (subst (NatSucc (Ref 1)) (Srt set)).
+    apply type_app with Nat.
+    apply type_nat_succ.
+    apply type_var; auto with coc core datatypes.
+    unfold item_lift; exists Nat; auto with coc core arith sets datatypes.
+    change (Prod Nat (Srt set)) with (lift 2 (Prod Nat (Srt set))).
+    apply thinning_n with e0; auto with coc core datatypes.
+    auto 11 with coc core datatypes.
+    change (Srt set) with (subst x4 (Srt set)); apply type_app with Nat; auto with coc core datatypes.
+
+    subst choice; subst on_zero; subst on_succ; subst num; subst u.
+    apply type_nat_rec; auto with coc core datatypes.
+
+    subst choice; subst on_zero; subst on_succ; subst num; subst u.
+    apply type_nat_rec; auto with coc core datatypes.
+
+    subst choice; subst on_zero; subst on_succ; subst num; subst u.
+    apply type_conv with (App x1 num') set; auto 11 with coc core datatypes.
+    apply type_nat_rec; auto 11 with coc core datatypes.
+    change (Srt set) with (subst x4 (Srt set)).
+    apply type_app with Nat; auto with coc core datatypes.
+
+    subst choice; subst on_zero; subst on_succ; subst x4; subst u.
+    auto with coc core datatypes.
+
+    subst choice; subst on_zero; subst on_succ; subst x4; subst u.
+    rewrite <- (lift0 num) at 3.
+    rewrite <- (simpl_subst (NatRec x1 x2 x3 num) num 0 0); auto with coc core arith sets.
+    rewrite <- subst_ref_eq with num 1.
+    rewrite <- (lift0 x1) at 2.
+    rewrite <- (simpl_subst (NatRec x1 x2 x3 num) x1 0 0); auto with coc core arith datatypes.
+    rewrite <- (simpl_subst num x1 1 1); auto with coc core arith datatypes.
+    change (subst_rec (NatRec x1 x2 x3 num) (subst_rec num (lift 2 x1) 1) 0) 
+    with (subst (NatRec x1 x2 x3 num) (subst_rec num (lift 2 x1) 1)).
+    change (subst_rec (NatRec x1 x2 x3 num) (subst_rec num (Ref 1) 1) 0)
+    with (subst (NatRec x1 x2 x3 num) (subst_rec num (Ref 1) 1)).
+    change (NatSucc (subst (NatRec x1 x2 x3 num) (subst_rec num (Ref 1) 1)))
+    with (subst (NatRec x1 x2 x3 num) (subst_rec num (NatSucc (Ref 1)) 1)).
+    change (App (subst (NatRec x1 x2 x3 num) (subst_rec num (lift 2 x1) 1))
+     (subst (NatRec x1 x2 x3 num) (subst_rec num (NatSucc (Ref 1)) 1)))
+    with (subst (NatRec x1 x2 x3 num) (subst_rec num (App (lift 2 x1) (NatSucc (Ref 1))) 1)).
+    apply type_app with (App x1 num).
+    apply type_nat_rec; auto 11 with coc core datatypes.
+    apply inv_typ_nat_succ with (typ e0 num Nat) e0 num Nat in H6; auto with coc core datatypes.
+    intros.
+    apply type_conv with Tx set; auto with coc core datatypes.
+    apply type_nat; eapply typ_wf; eauto with coc core datatypes.
+    rewrite <- (lift0 x1) at 1.
+    rewrite <- (simpl_subst num x1 0 0); auto with coc core arith datatypes.
+    rewrite <- (lift0 num) at 3.
+    rewrite <- (subst_ref_eq num 0).
+    change (App (subst_rec num (lift 1 x1) 0) (subst_rec num (Ref 0) 0))
+    with (subst_rec num (App (lift 1 x1) (Ref 0)) 0).
+    change (Prod (subst_rec num (App (lift 1 x1) (Ref 0)) 0)
+     (subst_rec num (App (lift 2 x1) (NatSucc (Ref 1))) 1))
+    with (subst num (Prod (App (lift 1 x1) (Ref 0)) (App (lift 2 x1) (NatSucc (Ref 1))))).
+    apply type_app with Nat.
+    apply inv_typ_nat_succ with (typ e0 num Nat) e0 num Nat in H6; auto with coc core datatypes.
+    intros.
+    apply type_conv with Tx set; auto with coc core datatypes.
+    apply type_nat; eapply typ_wf; eauto with coc core datatypes.
+    exact H4.
+
+    (* NatInd *)
+    inversion H8.
+    subst choice; subst on_zero; subst on_succ; subst num; subst u.
+    apply type_conv with (App choice' x4) prop.
+    apply type_nat_ind; auto with coc core datatypes.
+    apply type_conv with (App x1 NatO) prop; auto with coc core datatypes.
+    change (Srt prop) with (subst NatO (Srt prop)).
+    apply type_app with Nat; auto with coc core datatypes.
+    apply type_nat_o; eapply typ_wf; eauto with coc core datatypes.
+    apply type_conv with (
+      Prod Nat
+          (Prod (App (lift 1 x1) (Ref 0)) (App (lift 2 x1) (NatSucc (Ref 1))))
+    ) prop; auto with coc core datatypes.
+    assert (red x1 choice') by auto with coc core datatypes.
+    apply red_conv.
+    unfold lift.
+    auto 12 with coc core arith datatypes.
+    assert (typ e0 Nat (Srt set)) by (apply type_nat; eapply typ_wf; eauto with coc core datatypes).
+    assert (wf (Nat :: e0)) by (apply wf_var with set; auto with coc core datatypes).
+    assert (typ (Nat :: e0) (App (lift 1 choice') (Ref 0)) (Srt prop)).
+    change (Srt prop) with (subst (Ref 0) (Srt prop)); apply type_app with Nat.
+    apply type_var; auto with coc core arith sets datatypes.
+    unfold item_lift; exists Nat; auto with coc core arith sets datatypes.
+    change (Prod Nat (Srt prop)) with (lift 1 (Prod Nat (Srt prop))).
+    apply thinning; auto with coc core datatypes.
+    assert (wf ((App (lift 1 choice') (Ref 0)) :: Nat :: e0)) by (apply wf_var with prop; auto with coc core datatypes).
+    apply type_prod with set; auto with coc core datatypes.
+    apply type_prod with prop; auto with coc core datatypes.
+    change (Srt prop) with (subst (NatSucc (Ref 1)) (Srt prop)).
+    apply type_app with Nat.
+    apply type_nat_succ.
+    apply type_var; auto with coc core datatypes.
+    unfold item_lift; exists Nat; auto with coc core arith sets datatypes.
+    change (Prod Nat (Srt prop)) with (lift 2 (Prod Nat (Srt prop))).
+    apply thinning_n with e0; auto with coc core datatypes.
+    auto 11 with coc core datatypes.
+    change (Srt prop) with (subst x4 (Srt prop)); apply type_app with Nat; auto with coc core datatypes.
+
+    subst choice; subst on_zero; subst on_succ; subst num; subst u.
+    apply type_nat_ind; auto with coc core datatypes.
+
+    subst choice; subst on_zero; subst on_succ; subst num; subst u.
+    apply type_nat_ind; auto with coc core datatypes.
+
+    subst choice; subst on_zero; subst on_succ; subst num; subst u.
+    apply type_conv with (App x1 num') prop; auto 11 with coc core datatypes.
+    apply type_nat_ind; auto 11 with coc core datatypes.
+    change (Srt prop) with (subst x4 (Srt prop)).
+    apply type_app with Nat; auto with coc core datatypes.
+
+    subst choice; subst on_zero; subst on_succ; subst x4; subst u.
+    auto with coc core datatypes.
+
+    subst choice; subst on_zero; subst on_succ; subst x4; subst u.
+    rewrite <- (lift0 num) at 3.
+    rewrite <- (simpl_subst (NatInd x1 x2 x3 num) num 0 0); auto with coc core arith sets.
+    rewrite <- subst_ref_eq with num 1.
+    rewrite <- (lift0 x1) at 2.
+    rewrite <- (simpl_subst (NatInd x1 x2 x3 num) x1 0 0); auto with coc core arith datatypes.
+    rewrite <- (simpl_subst num x1 1 1); auto with coc core arith datatypes.
+    change (subst_rec (NatInd x1 x2 x3 num) (subst_rec num (lift 2 x1) 1) 0) 
+    with (subst (NatInd x1 x2 x3 num) (subst_rec num (lift 2 x1) 1)).
+    change (subst_rec (NatInd x1 x2 x3 num) (subst_rec num (Ref 1) 1) 0)
+    with (subst (NatInd x1 x2 x3 num) (subst_rec num (Ref 1) 1)).
+    change (NatSucc (subst (NatInd x1 x2 x3 num) (subst_rec num (Ref 1) 1)))
+    with (subst (NatInd x1 x2 x3 num) (subst_rec num (NatSucc (Ref 1)) 1)).
+    change (App (subst (NatInd x1 x2 x3 num) (subst_rec num (lift 2 x1) 1))
+     (subst (NatInd x1 x2 x3 num) (subst_rec num (NatSucc (Ref 1)) 1)))
+    with (subst (NatInd x1 x2 x3 num) (subst_rec num (App (lift 2 x1) (NatSucc (Ref 1))) 1)).
+    apply type_app with (App x1 num).
+    apply type_nat_ind; auto 11 with coc core datatypes.
+    apply inv_typ_nat_succ with (typ e0 num Nat) e0 num Nat in H6; auto with coc core datatypes.
+    intros.
+    apply type_conv with Tx set; auto with coc core datatypes.
+    apply type_nat; eapply typ_wf; eauto with coc core datatypes.
+    rewrite <- (lift0 x1) at 1.
+    rewrite <- (simpl_subst num x1 0 0); auto with coc core arith datatypes.
+    rewrite <- (lift0 num) at 3.
+    rewrite <- (subst_ref_eq num 0).
+    change (App (subst_rec num (lift 1 x1) 0) (subst_rec num (Ref 0) 0))
+    with (subst_rec num (App (lift 1 x1) (Ref 0)) 0).
+    change (Prod (subst_rec num (App (lift 1 x1) (Ref 0)) 0)
+     (subst_rec num (App (lift 2 x1) (NatSucc (Ref 1))) 1))
+    with (subst num (Prod (App (lift 1 x1) (Ref 0)) (App (lift 2 x1) (NatSucc (Ref 1))))).
+    apply type_app with Nat.
+    apply inv_typ_nat_succ with (typ e0 num Nat) e0 num Nat in H6; auto with coc core datatypes.
+    intros.
+    apply type_conv with Tx set; auto with coc core datatypes.
+    apply type_nat; eapply typ_wf; eauto with coc core datatypes.
+    exact H4.
+
+    inversion_clear H6; apply type_acc_prop; auto with coc core datatypes.
+    apply type_conv with (Prod x1 (Prod (lift 1 x1) (Srt prop))) kind; auto 11 with coc core datatypes.
+    apply one_step_red in H7.
+    unfold lift.
+    apply red_conv; auto 11 with coc core datatypes.
+    apply type_prod with set.
+    apply H1; auto with coc core datatypes.
+    apply type_prod with set.
+    change (Srt set) with (lift 1 (Srt set)).
+    apply thinning; auto with coc core datatypes.
+    apply wf_var with set.
+    apply H1; auto with coc core datatypes.
+    apply type_prop.
+    apply wf_var with set.
+    change (Srt set) with (lift 1 (Srt set)).
+    apply thinning; auto with coc core datatypes.
+    apply wf_var with set.
+    apply H1; auto with coc core datatypes.
+    apply type_conv with x1 set; auto with coc core datatypes.
+
+    inversion_clear H8; try (apply type_acc_intro; auto with coc core datatypes).
+    apply type_conv with (AccProp type' x2 x3) prop.
+    assert (typ e0 type' (Srt set)) by (apply H1; auto with coc core datatypes).
+    assert (typ e0 x3 type') by (apply type_conv with x1 set; auto with coc core datatypes).
+    assert (wf (type' :: e0)) by (apply wf_var with set; auto with coc core datatypes).
+    assert (wf (lift 1 type' :: type' :: e0)) by (
+      apply wf_var with set; change (Srt set) with (lift 1 (Srt set)); 
+      apply thinning; auto with coc core datatypes
+    ).
+    assert (typ e0 x2 (Prod type' (Prod (lift 1 type') (Srt prop)))).
+    apply type_conv with (Prod x1 (Prod (lift 1 x1) (Srt prop))) kind; auto with coc core datatypes.
+    unfold lift; auto 11 with coc core datatypes.
+    apply type_prod with set; auto with coc core datatypes.
+    apply type_prod with set; auto with coc core datatypes.
+    change (Srt set) with (lift 1 (Srt set)); apply thinning; auto with coc core datatypes.
+    change (Srt set) with (lift 1 (Srt set)); apply thinning; auto with coc core datatypes.
+    apply type_acc_intro; auto with coc core datatypes.
+    apply type_conv with (Prod x1
+     (Prod (App (App (lift 1 x2) (Ref 0)) (lift 1 x3))
+        (AccProp (lift 2 x1) (lift 2 x2) (Ref 1))))
+    prop; auto with coc core datatypes.
+    unfold lift; auto 13 with coc core datatypes.
+    apply type_prod with set; auto with coc core datatypes.
+    apply type_prod with prop.
+    change (Srt prop) with (subst (lift 1 x3) (Srt prop)).
+    apply type_app with (lift 1 x1).
+    apply thinning; auto with coc core datatypes.
 (*
   Qed.
 

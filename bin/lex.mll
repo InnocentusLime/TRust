@@ -16,6 +16,7 @@
     Hashtbl.add temp "Prop" PROPOSITION;
     Hashtbl.add temp "Type" TYPE;
     Hashtbl.add temp "Predicate" PREDICATE;
+    Hashtbl.add temp "TypeBuilder" TYPE_BUILDER;
     Hashtbl.add temp "PreType" PRE_TYPE;
     Hashtbl.add temp "Kind" KIND;
     Hashtbl.add temp "CompKind" COMPUTATION_KIND;
@@ -36,6 +37,9 @@
     Hashtbl.add temp "eq_elim" EQ_ELIM;
     Hashtbl.add temp "false_elim_prop" FALSE_ELIM_PROP;
     Hashtbl.add temp "false_elim_type" FALSE_ELIM_TYPE;
+    Hashtbl.add temp "true" BOOL_TRUE;
+    Hashtbl.add temp "false" BOOL_FALSE;
+    Hashtbl.add temp "bool" BOOL_TYPE;
     
     Hashtbl.add temp "reset" RESET;
     Hashtbl.add temp "quit" QUIT;
@@ -43,6 +47,9 @@
     Hashtbl.add temp "tc_ir_term" TC_IR_TERM;
     Hashtbl.add temp "ir_def" IR_DEFINITION;
     Hashtbl.add temp "ir_print_def" IR_PRINT_DEFINITION;
+    Hashtbl.add temp "ir_is_conv" IR_IS_CONV;
+    Hashtbl.add temp "ir_simpl" IR_SIMPL;
+    Hashtbl.add temp "ir_load_mod" IR_LOAD_MOD;
     temp
   )
 

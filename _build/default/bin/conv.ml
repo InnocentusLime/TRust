@@ -555,6 +555,14 @@ module IrUnname = struct
     | IrTerm.EqElim (pred, proof, eq_proof) -> IrDeBrujin.EqElim (compile_term ctx pred, compile_term ctx proof, compile_term ctx eq_proof)
     | IrTerm.FalsityEliminationProposition (prop, proof) -> IrDeBrujin.FalsityEliminationProposition (compile_term ctx prop, compile_term ctx proof)
     | IrTerm.FalsityEliminationType (typ, proof) -> IrDeBrujin.FalsityEliminationType (compile_term ctx typ, compile_term ctx proof)
+    | IrTerm.True -> IrDeBrujin.True
+    | IrTerm.False -> IrDeBrujin.False
+    | IrTerm.Bool -> IrDeBrujin.Bool
+    | IrTerm.Unit -> IrDeBrujin.Unit
+    | IrTerm.Nil -> IrDeBrujin.Nil
+    | IrTerm.BoolRec (choice, cond, on_true, on_false) -> IrDeBrujin.BoolRec (compile_term ctx choice, compile_term ctx cond, compile_term ctx on_true, compile_term ctx on_false)
+    | IrTerm.TypeBuilder -> IrDeBrujin.TypeBuilder
+    | IrTerm.BoolRecIndep (cond, on_true, on_false) -> IrDeBrujin.BoolRecIndep (compile_term ctx cond, compile_term ctx on_true, compile_term ctx on_false)
 end
 
 module IrName = struct
@@ -630,6 +638,14 @@ module IrName = struct
     | IrDeBrujin.EqElim (pred, proof, eq_proof) -> IrTerm.EqElim (compile_term ctx pred, compile_term ctx proof, compile_term ctx eq_proof)
     | IrDeBrujin.FalsityEliminationProposition (prop, proof) -> IrTerm.FalsityEliminationProposition (compile_term ctx prop, compile_term ctx proof)
     | IrDeBrujin.FalsityEliminationType (typ, proof) -> IrTerm.FalsityEliminationType (compile_term ctx typ, compile_term ctx proof)
+    | IrDeBrujin.True -> IrTerm.True
+    | IrDeBrujin.False -> IrTerm.False
+    | IrDeBrujin.Bool -> IrTerm.Bool
+    | IrDeBrujin.Unit -> IrTerm.Unit
+    | IrDeBrujin.Nil -> IrTerm.Nil
+    | IrDeBrujin.BoolRec (choice, cond, on_true, on_false) -> IrTerm.BoolRec (compile_term ctx choice, compile_term ctx cond, compile_term ctx on_true, compile_term ctx on_false)
+    | IrDeBrujin.BoolRecIndep (cond, on_true, on_false) -> IrTerm.BoolRecIndep (compile_term ctx cond, compile_term ctx on_true, compile_term ctx on_false)
+    | IrDeBrujin.TypeBuilder -> IrTerm.TypeBuilder
 end
 
 module IrToString = struct
@@ -685,6 +701,14 @@ module IrToString = struct
     | IrTerm.EqElim (pred, proof, eq_proof) -> Printf.sprintf "eq_elim(%s, %s, %s)" (string_of_named_ir_term pred) (string_of_named_ir_term proof) (string_of_named_ir_term eq_proof)
     | IrTerm.FalsityEliminationProposition (prop, proof) -> Printf.sprintf "false_elim_prop(%s, %s)" (string_of_named_ir_term prop) (string_of_named_ir_term proof)
     | IrTerm.FalsityEliminationType (typ, proof) -> Printf.sprintf "false_elim_type(%s, %s)" (string_of_named_ir_term typ) (string_of_named_ir_term proof)
+    | IrTerm.True -> "true"
+    | IrTerm.False -> "false"
+    | IrTerm.Bool -> "bool"
+    | IrTerm.Unit -> "unit"
+    | IrTerm.Nil -> "()"
+    | IrTerm.BoolRec (choice, cond, on_true, on_false) -> Printf.sprintf "if<%s> %s { %s } else { %s }" (string_of_named_ir_term choice) (string_of_named_ir_term cond) (string_of_named_ir_term on_true) (string_of_named_ir_term on_false)
+    | IrTerm.BoolRecIndep ( cond, on_true, on_false) -> Printf.sprintf "if %s { %s } else { %s }" (string_of_named_ir_term cond) (string_of_named_ir_term on_true) (string_of_named_ir_term on_false)
+    | IrTerm.TypeBuilder -> "TypeBuilder"
 
   let string_of_de_brujin_ir_term ctx t = t |> IrName.compile_term ctx |> string_of_named_ir_term
 end

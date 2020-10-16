@@ -17,6 +17,7 @@
     Hashtbl.add temp "Prop" PROPOSITION;
     Hashtbl.add temp "Type" TYPE;
     Hashtbl.add temp "Predicate" PREDICATE;
+    Hashtbl.add temp "TypeBuilder" TYPE_BUILDER;
     Hashtbl.add temp "PreType" PRE_TYPE;
     Hashtbl.add temp "Kind" KIND;
     Hashtbl.add temp "CompKind" COMPUTATION_KIND;
@@ -37,6 +38,9 @@
     Hashtbl.add temp "eq_elim" EQ_ELIM;
     Hashtbl.add temp "false_elim_prop" FALSE_ELIM_PROP;
     Hashtbl.add temp "false_elim_type" FALSE_ELIM_TYPE;
+    Hashtbl.add temp "true" BOOL_TRUE;
+    Hashtbl.add temp "false" BOOL_FALSE;
+    Hashtbl.add temp "bool" BOOL_TYPE;
     
     Hashtbl.add temp "reset" RESET;
     Hashtbl.add temp "quit" QUIT;
@@ -44,6 +48,9 @@
     Hashtbl.add temp "tc_ir_term" TC_IR_TERM;
     Hashtbl.add temp "ir_def" IR_DEFINITION;
     Hashtbl.add temp "ir_print_def" IR_PRINT_DEFINITION;
+    Hashtbl.add temp "ir_is_conv" IR_IS_CONV;
+    Hashtbl.add temp "ir_simpl" IR_SIMPL;
+    Hashtbl.add temp "ir_load_mod" IR_LOAD_MOD;
     temp
   )
 
@@ -52,7 +59,7 @@
     temp
   )
 
-# 56 "lex.ml"
+# 63 "lex.ml"
 let __ocaml_lex_tables = {
   Lexing.lex_base =
    "\000\000\218\255\220\255\223\255\224\255\225\255\226\255\227\255\
@@ -424,233 +431,233 @@ and __ocaml_lex_lex_rec lexbuf __ocaml_lex_state =
   match Lexing.engine __ocaml_lex_tables __ocaml_lex_state lexbuf with
       | 0 ->
 let
-# 67 "lex.mll"
+# 74 "lex.mll"
                      s
-# 430 "lex.ml"
+# 437 "lex.ml"
 = Lexing.sub_lexeme lexbuf (lexbuf.Lexing.lex_start_pos + 1) (lexbuf.Lexing.lex_curr_pos + -1) in
-# 67 "lex.mll"
+# 74 "lex.mll"
                              ( STRING s )
-# 434 "lex.ml"
+# 441 "lex.ml"
 
   | 1 ->
-# 68 "lex.mll"
+# 75 "lex.mll"
        ( FATARROW )
-# 439 "lex.ml"
+# 446 "lex.ml"
 
   | 2 ->
-# 69 "lex.mll"
+# 76 "lex.mll"
         ( PROPOR )
-# 444 "lex.ml"
+# 451 "lex.ml"
 
   | 3 ->
-# 70 "lex.mll"
+# 77 "lex.mll"
         ( PROPAND )
-# 449 "lex.ml"
+# 456 "lex.ml"
 
   | 4 ->
 let
-# 71 "lex.mll"
+# 78 "lex.mll"
                        s
-# 455 "lex.ml"
+# 462 "lex.ml"
 = Lexing.sub_lexeme lexbuf (lexbuf.Lexing.lex_start_pos + 2) (lexbuf.Lexing.lex_curr_pos + -1) in
-# 71 "lex.mll"
+# 78 "lex.mll"
                                    ( COMMENT s )
-# 459 "lex.ml"
+# 466 "lex.ml"
 
   | 5 ->
 let
-# 72 "lex.mll"
+# 79 "lex.mll"
                  s
-# 465 "lex.ml"
+# 472 "lex.ml"
 = Lexing.sub_lexeme lexbuf (lexbuf.Lexing.lex_start_pos + 2) (lexbuf.Lexing.lex_curr_pos + -2) in
-# 72 "lex.mll"
+# 79 "lex.mll"
                           ( COMMENT s )
-# 469 "lex.ml"
+# 476 "lex.ml"
 
   | 6 ->
-# 73 "lex.mll"
+# 80 "lex.mll"
                     ( lex lexbuf )
-# 474 "lex.ml"
+# 481 "lex.ml"
 
   | 7 ->
 let
-# 74 "lex.mll"
+# 81 "lex.mll"
              n
-# 480 "lex.ml"
+# 487 "lex.ml"
 = Lexing.sub_lexeme lexbuf lexbuf.Lexing.lex_start_pos lexbuf.Lexing.lex_curr_pos in
-# 74 "lex.mll"
+# 81 "lex.mll"
                ( INT n )
-# 484 "lex.ml"
+# 491 "lex.ml"
 
   | 8 ->
 let
-# 75 "lex.mll"
+# 82 "lex.mll"
                  n
-# 490 "lex.ml"
+# 497 "lex.ml"
 = Lexing.sub_lexeme lexbuf lexbuf.Lexing.lex_start_pos lexbuf.Lexing.lex_curr_pos in
-# 75 "lex.mll"
+# 82 "lex.mll"
                    ( INT n )
-# 494 "lex.ml"
+# 501 "lex.ml"
 
   | 9 ->
 let
-# 76 "lex.mll"
+# 83 "lex.mll"
                 s
-# 500 "lex.ml"
+# 507 "lex.ml"
 = Lexing.sub_lexeme lexbuf (lexbuf.Lexing.lex_start_pos + 1) lexbuf.Lexing.lex_curr_pos in
-# 76 "lex.mll"
+# 83 "lex.mll"
                    ( FN_PTR s )
-# 504 "lex.ml"
+# 511 "lex.ml"
 
   | 10 ->
 let
-# 77 "lex.mll"
+# 84 "lex.mll"
                  s
-# 510 "lex.ml"
+# 517 "lex.ml"
 = Lexing.sub_lexeme lexbuf (lexbuf.Lexing.lex_start_pos + 1) lexbuf.Lexing.lex_curr_pos in
-# 77 "lex.mll"
+# 84 "lex.mll"
                     ( if Hashtbl.mem special_keyword_table s then Hashtbl.find special_keyword_table s else SPECIAL_IDENT s )
-# 514 "lex.ml"
+# 521 "lex.ml"
 
   | 11 ->
 let
-# 78 "lex.mll"
+# 85 "lex.mll"
            s
-# 520 "lex.ml"
+# 527 "lex.ml"
 = Lexing.sub_lexeme lexbuf lexbuf.Lexing.lex_start_pos lexbuf.Lexing.lex_curr_pos in
-# 78 "lex.mll"
+# 85 "lex.mll"
              ( if Hashtbl.mem keyword_table s then Hashtbl.find keyword_table s else IDENT s )
-# 524 "lex.ml"
+# 531 "lex.ml"
 
   | 12 ->
-# 79 "lex.mll"
+# 86 "lex.mll"
         ( PROPEQ )
-# 529 "lex.ml"
+# 536 "lex.ml"
 
   | 13 ->
-# 80 "lex.mll"
+# 87 "lex.mll"
        ( TYPE_HINT )
-# 534 "lex.ml"
+# 541 "lex.ml"
 
   | 14 ->
-# 81 "lex.mll"
+# 88 "lex.mll"
       ( AT )
-# 539 "lex.ml"
+# 546 "lex.ml"
 
   | 15 ->
-# 82 "lex.mll"
+# 89 "lex.mll"
        ( ARROW )
-# 544 "lex.ml"
+# 551 "lex.ml"
 
   | 16 ->
-# 83 "lex.mll"
+# 90 "lex.mll"
        ( LANGLE_EQ )
-# 549 "lex.ml"
+# 556 "lex.ml"
 
   | 17 ->
-# 84 "lex.mll"
+# 91 "lex.mll"
        ( RANGLE_EQ )
-# 554 "lex.ml"
+# 561 "lex.ml"
 
   | 18 ->
-# 85 "lex.mll"
+# 92 "lex.mll"
        ( LONG_EQ )
-# 559 "lex.ml"
+# 566 "lex.ml"
 
   | 19 ->
-# 86 "lex.mll"
+# 93 "lex.mll"
       ( LANGLE )
-# 564 "lex.ml"
+# 571 "lex.ml"
 
   | 20 ->
-# 87 "lex.mll"
+# 94 "lex.mll"
       ( RANGLE )
-# 569 "lex.ml"
+# 576 "lex.ml"
 
   | 21 ->
-# 88 "lex.mll"
+# 95 "lex.mll"
       ( PLUS )
-# 574 "lex.ml"
+# 581 "lex.ml"
 
   | 22 ->
-# 89 "lex.mll"
+# 96 "lex.mll"
       ( MINUS )
-# 579 "lex.ml"
+# 586 "lex.ml"
 
   | 23 ->
-# 90 "lex.mll"
+# 97 "lex.mll"
       ( DIVIDE )
-# 584 "lex.ml"
+# 591 "lex.ml"
 
   | 24 ->
-# 91 "lex.mll"
+# 98 "lex.mll"
       ( MULTIPLY )
-# 589 "lex.ml"
+# 596 "lex.ml"
 
   | 25 ->
-# 92 "lex.mll"
+# 99 "lex.mll"
       ( LPARAN )
-# 594 "lex.ml"
+# 601 "lex.ml"
 
   | 26 ->
-# 93 "lex.mll"
+# 100 "lex.mll"
       ( RPARAN )
-# 599 "lex.ml"
+# 606 "lex.ml"
 
   | 27 ->
-# 94 "lex.mll"
+# 101 "lex.mll"
       ( LBRACE )
-# 604 "lex.ml"
+# 611 "lex.ml"
 
   | 28 ->
-# 95 "lex.mll"
+# 102 "lex.mll"
       ( RBRACE )
-# 609 "lex.ml"
+# 616 "lex.ml"
 
   | 29 ->
-# 96 "lex.mll"
+# 103 "lex.mll"
       ( LSQBR )
-# 614 "lex.ml"
+# 621 "lex.ml"
 
   | 30 ->
-# 97 "lex.mll"
+# 104 "lex.mll"
       ( RSQBR )
-# 619 "lex.ml"
+# 626 "lex.ml"
 
   | 31 ->
-# 98 "lex.mll"
+# 105 "lex.mll"
       ( COMMA )
-# 624 "lex.ml"
+# 631 "lex.ml"
 
   | 32 ->
-# 99 "lex.mll"
+# 106 "lex.mll"
       ( SEMICOLLON )
-# 629 "lex.ml"
+# 636 "lex.ml"
 
   | 33 ->
-# 100 "lex.mll"
+# 107 "lex.mll"
       ( COLLON )
-# 634 "lex.ml"
+# 641 "lex.ml"
 
   | 34 ->
-# 101 "lex.mll"
+# 108 "lex.mll"
       ( EQ )
-# 639 "lex.ml"
+# 646 "lex.ml"
 
   | 35 ->
-# 102 "lex.mll"
+# 109 "lex.mll"
       ( DOT )
-# 644 "lex.ml"
+# 651 "lex.ml"
 
   | 36 ->
-# 103 "lex.mll"
+# 110 "lex.mll"
        ( SLASH )
-# 649 "lex.ml"
+# 656 "lex.ml"
 
   | 37 ->
-# 104 "lex.mll"
+# 111 "lex.mll"
       ( EOF )
-# 654 "lex.ml"
+# 661 "lex.ml"
 
   | __ocaml_lex_state -> lexbuf.Lexing.refill_buff lexbuf;
       __ocaml_lex_lex_rec lexbuf __ocaml_lex_state

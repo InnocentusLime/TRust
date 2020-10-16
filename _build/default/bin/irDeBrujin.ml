@@ -16,6 +16,11 @@ type term =
 | Proposition | Predicate | Type | PreType
 | ComputationKind
 | Kind of int
+| TypeBuilder
+| True | False
+| Bool
+| Unit
+| Nil
 (* Built-in ops *)
 | ComputationType of term * term
 | Opposite of term
@@ -44,6 +49,8 @@ type term =
 | EqElim of term * term * term
 | FalsityEliminationProposition of term * term
 | FalsityEliminationType of term * term
+| BoolRec of term * term * term * term
+| BoolRecIndep of term * term * term
 
 (* build the call in shape of `callee arg1 arg2 arg3 ... argn` *)
 let build_call callee args = List.fold_left (fun acc x -> App (acc, x)) callee args
@@ -62,23 +69,11 @@ let rec mem_var v t =
   | Var v' -> v = v'
   | Abs (_, domain, body) -> mem_var v domain || mem_var (v + 1) body
   | App (l, r) -> mem_var v l || mem_var v r
-  | Total -> false
-  | Divergent -> false
-  | IntegerType -> false
-  | IntegerConst _ -> false
-  | FunctionPointer _ -> false
-  | Proposition -> false
-  | Predicate -> false
-  | Type -> false
-  | PreType -> false
-  | ComputationKind -> false
-  | Kind _ -> false
   | ComputationType (eff, typ) -> mem_var v eff || mem_var v typ
   | Opposite x -> mem_var v x
   | Add (l, r) -> mem_var v l || mem_var v r
   | Subtract (l, r) -> mem_var v l || mem_var v r
   | Multiply (l, r) -> mem_var v l || mem_var v r
-  | Recursion (_, _) -> false
   | Product (_, domain, range) -> mem_var v domain || mem_var (v + 1) range
   | Sequence (head, tail) -> mem_var v head || mem_var v tail
   | AndIntroduction (l_proof, r_proof) -> mem_var v l_proof || mem_var v r_proof
@@ -94,12 +89,12 @@ let rec mem_var v t =
   | FnPtrType x -> mem_var v x
   | Eq (l, r, typ) -> mem_var v l || mem_var v r || mem_var v typ
   | EqIntro (value, typ) -> mem_var v value || mem_var v typ
-  | Truth -> false
-  | ProofOfTruth -> false
-  | Falsity -> false
   | EqElim (pred, proof, eq_proof) -> mem_var v pred || mem_var v proof || mem_var v eq_proof
   | FalsityEliminationProposition (prop, proof) -> mem_var v prop || mem_var v proof
   | FalsityEliminationType (typ, proof) -> mem_var v typ || mem_var v proof
+  | BoolRec (choice, cond, on_true, on_false) -> mem_var v choice || mem_var v cond || mem_var v on_true || mem_var v on_false
+  | BoolRecIndep (cond, on_true, on_false) -> mem_var v cond || mem_var v on_true || mem_var v on_false
+  | _ -> false
 
 let rec eq_terms l r =
   match (l, r) with
@@ -107,12 +102,16 @@ let rec eq_terms l r =
   | (Abs (_, ldom, lbody), Abs (_, rdom, rbody)) -> eq_terms ldom rdom && eq_terms lbody rbody
   | (App (lcallee, larg), App (rcallee, rarg)) -> eq_terms lcallee rcallee && eq_terms larg rarg
   | (Total, Total) -> true
+  | (Divergent, Divergent) -> true
   | (IntegerType, IntegerType) -> true
   | (IntegerConst lc, IntegerConst rc) when lc = rc -> true
   | (FunctionPointer lptr, FunctionPointer rptr) when lptr = rptr -> true
   | (Proposition, Proposition) -> true
   | (Type, Type) -> true
   | (PreType, PreType) -> true
+  | (True, True) -> true
+  | (False, False) -> true
+  | (Bool, Bool) -> true
   | (Kind lo, Kind ro) when lo = ro -> true
   | (Predicate, Predicate) -> true
   | (ComputationKind, ComputationKind) -> true
@@ -144,6 +143,9 @@ let rec eq_terms l r =
   | (EqElim (lpred, lproof, leq), EqElim (rpred, rproof, req)) -> eq_terms lpred rpred && eq_terms lproof rproof && eq_terms leq req
   | (FalsityEliminationProposition (lprop, lproof), FalsityEliminationProposition (rprop, rproof)) -> eq_terms lprop rprop && eq_terms lproof rproof
   | (FalsityEliminationType (ltyp, lproof), FalsityEliminationType (rtyp, rproof)) -> eq_terms ltyp rtyp && eq_terms lproof rproof
+  | (BoolRec (lchoice, lcond, lon_true, lon_false), BoolRec (rchoice, rcond, ron_true, ron_false)) -> eq_terms lchoice rchoice && eq_terms lcond rcond && eq_terms lon_true ron_true && eq_terms lon_false ron_false
+  | (BoolRecIndep (lcond, lon_true, lon_false), BoolRecIndep (rcond, ron_true, ron_false)) -> eq_terms lcond rcond && eq_terms lon_true ron_true && eq_terms lon_false ron_false
+  | (TypeBuilder, TypeBuilder) -> true
   | _ -> false
 
 let rec lift_rec k n t =
@@ -151,17 +153,6 @@ let rec lift_rec k n t =
   | Var v -> if v < k then Var v else Var (v + n)
   | Abs (str, dom, body) -> Abs (str, lift_rec k n dom, lift_rec (k + 1) n body)
   | App (callee, arg) -> App (lift_rec k n callee, lift_rec k n arg)
-  | Total -> Total
-  | Divergent -> Divergent
-  | IntegerType -> IntegerType
-  | IntegerConst x -> IntegerConst x
-  | FunctionPointer ptr -> FunctionPointer ptr
-  | Proposition -> Proposition
-  | Type -> Type
-  | PreType -> PreType
-  | Predicate -> Predicate
-  | Kind o -> Kind o
-  | ComputationKind -> ComputationKind
   | ComputationType (eff, typ) -> ComputationType (lift_rec k n eff, lift_rec k n typ)
   | Opposite x -> Opposite (lift_rec k n x)
   | Add (x, y) -> Add (lift_rec k n x, lift_rec k n y)
@@ -183,12 +174,12 @@ let rec lift_rec k n t =
   | FnPtrType x -> FnPtrType (lift_rec k n x)
   | Eq (l, r, typ) -> Eq (lift_rec k n l, lift_rec k n r, lift_rec k n typ)
   | EqIntro (value, typ) -> EqIntro (lift_rec k n value, lift_rec k n typ)
-  | Truth -> Truth
-  | ProofOfTruth -> ProofOfTruth
-  | Falsity -> Falsity
   | EqElim (pred, proof, eq_proof) -> EqElim (lift_rec k n pred, lift_rec k n proof, lift_rec k n eq_proof)
   | FalsityEliminationProposition (prop, proof) -> FalsityEliminationProposition (lift_rec k n prop, lift_rec k n proof)
   | FalsityEliminationType (typ, proof) -> FalsityEliminationType (lift_rec k n typ, lift_rec k n proof)
+  | BoolRec (choice, cond, on_true, on_false) -> BoolRec (lift_rec k n choice, lift_rec k n cond, lift_rec k n on_true, lift_rec k n on_false)
+  | BoolRecIndep (cond, on_true, on_false) -> BoolRecIndep (lift_rec k n cond, lift_rec k n on_true, lift_rec k n on_false)
+  | _ -> t
 
 let lower_rec k n t = lift_rec k (-n) t
 
@@ -205,17 +196,6 @@ let rec subst_rec n s t =
   | Var v -> if v = n then s else Var v
   | Abs (str, dom, body) -> Abs (str, subst_rec n s dom, subst_rec (n + 1) (lift1 s) body)
   | App (callee, arg) -> App (subst_rec n s callee, subst_rec n s arg)
-  | Total -> Total
-  | Divergent -> Divergent
-  | IntegerType -> IntegerType
-  | IntegerConst x -> IntegerConst x
-  | FunctionPointer ptr -> FunctionPointer ptr
-  | Proposition -> Proposition
-  | Type -> Type
-  | PreType -> PreType
-  | Kind o -> Kind o
-  | Predicate -> Predicate
-  | ComputationKind -> ComputationKind
   | ComputationType (eff, typ) -> ComputationType (subst_rec n s eff, subst_rec n s typ)
   | Opposite x -> Opposite (subst_rec n s x)
   | Add (x, y) -> Add (subst_rec n s x, subst_rec n s y)
@@ -237,12 +217,12 @@ let rec subst_rec n s t =
   | FnPtrType x -> FnPtrType (subst_rec n s x)
   | Eq (l, r, typ) -> Eq (subst_rec n s l, subst_rec n s r, subst_rec n s typ)
   | EqIntro (value, typ) -> EqIntro (subst_rec n s value, subst_rec n s typ)
-  | Truth -> Truth
-  | ProofOfTruth -> ProofOfTruth
-  | Falsity -> Falsity
   | EqElim (pred, proof, eq_proof) -> EqElim (subst_rec n s pred, subst_rec n s proof, subst_rec n s eq_proof)
   | FalsityEliminationProposition (prop, proof) -> FalsityEliminationProposition (subst_rec n s prop, subst_rec n s proof)
   | FalsityEliminationType (typ, proof) -> FalsityEliminationType (subst_rec n s typ, subst_rec n s proof)
+  | BoolRec (choice, cond, on_true, on_false) -> BoolRec (subst_rec n s choice, subst_rec n s cond, subst_rec n s on_true, subst_rec n s on_false)
+  | BoolRecIndep (cond, on_true, on_false) -> BoolRecIndep (subst_rec n s cond, subst_rec n s on_true, subst_rec n s on_false)
+  | _ -> t
 
 let subst = subst_rec 0
 
@@ -338,13 +318,20 @@ let rec red1 ctx t =
   | EqElim (pred, proof, eq_proof) when not (is_value proof) -> EqElim (pred, red1 ctx proof, eq_proof)
   | EqElim (pred, proof, eq_proof) when not (is_value eq_proof) -> EqElim (pred, proof, red1 ctx eq_proof)
   | EqElim (_, proof, EqIntro (_, _)) -> proof
+  | BoolRec (choice, cond, on_true, on_false) when not (is_value cond) -> BoolRec (choice, red1 ctx cond, on_true, on_false)
+  | BoolRec (_, True, on_true, _) -> on_true
+  | BoolRec (_, False, _, on_false) -> on_false
+  | BoolRecIndep (cond, on_true, on_false) when not (is_value cond) -> BoolRecIndep (red1 ctx cond, on_true, on_false)
+  | BoolRecIndep (True, on_true, _) -> on_true
+  | BoolRecIndep (False, _, on_false) -> on_false
   | _ -> t
 and is_value t = 
   match t with
   | Total | Divergent | IntegerType
   | IntegerConst _ | FunctionPointer _ 
   | Proposition | Type | Kind _
-  | Recursion _ | Truth | ProofOfTruth | Falsity -> true
+  | Recursion _ | Truth | ProofOfTruth | Falsity
+  | Bool | True | False | TypeBuilder -> true
   | Abs (_, domain, _) -> is_value domain  
   | Product (_, domain, range) -> is_value domain && is_value range 
   | ComputationType (eff, typ) -> is_value eff && is_value typ
@@ -455,6 +442,7 @@ let add_func ctx v =
 let rec tc ctx t =
   match t with
   | Var v -> (
+    wf ctx;
     let typ = type_of_var ctx v in
     if tc_is_program_value_type ctx typ then ComputationType (Total, typ)
     else typ
@@ -486,7 +474,7 @@ let rec tc ctx t =
       )
       | _ -> failwith "arg has an illegal kind"
     )
-    | Proposition | Predicate 
+    | Proposition | Predicate | TypeBuilder 
     | Kind 0 | Kind 1 | Kind 2 -> (
       let (s, domain, range) = reduce_to_product_type ctx func_typ in
       let _ = tc_function_kind ctx s domain range in
@@ -504,11 +492,15 @@ let rec tc ctx t =
     )
     | _ -> failwith "The callee has an illegal kind"
   )
-  | Total | Divergent -> ComputationKind
-  | IntegerType -> PreType
-  | IntegerConst _ -> ComputationType (Total, IntegerType)
-  | FunctionPointer x -> ComputationType (Total, FnPtrType (type_of_func ctx x))
-  | Predicate | Proposition | Type | PreType | ComputationKind -> Kind 0
+  | Total | Divergent -> wf ctx; ComputationKind
+  | Bool -> wf ctx; PreType
+  | Unit -> wf ctx; PreType
+  | IntegerType -> wf ctx; PreType
+  | IntegerConst _ -> wf ctx; ComputationType (Total, IntegerType)
+  | True | False -> wf ctx; ComputationType (Total, Bool)
+  | Nil -> wf ctx; ComputationType (Total, Unit)
+  | FunctionPointer x -> wf ctx; ComputationType (Total, FnPtrType (type_of_func ctx x))
+  | Predicate | Proposition | Type | PreType | ComputationKind | TypeBuilder -> wf ctx; Kind 0
   | Kind _ -> failwith "Kind is an illegal expression"
   | ComputationType (eff, typ) -> (
     if conv ctx (tc ctx eff) ComputationKind then (
@@ -528,6 +520,7 @@ let rec tc ctx t =
     else failwith "arithmetic operation got non-integer values"
   )
   | Recursion (recs, chosen) -> (
+    wf ctx;
     let (ret_typ, args) = (
       let f = chosen |> List.nth recs |> List.nth ctx.lib |> snd in
       (f.ret_type, firstn f.args (List.length recs)) 
@@ -641,9 +634,9 @@ let rec tc ctx t =
     then Eq (value, value, typ)
     else failwith "EqIntro typing contraints not satisfied"
   )
-  | Truth -> Proposition
-  | ProofOfTruth -> Truth
-  | Falsity -> Proposition
+  | Truth -> wf ctx; Proposition
+  | ProofOfTruth -> wf ctx; Truth
+  | Falsity -> wf ctx; Proposition
   | EqElim (pred, proof, eq_proof) -> (
     let (l, r, typ) = eq_proof |> tc ctx |> reduce_to_eq_type ctx
     and (_, domain, range) = pred |> tc ctx |> reduce_to_product_type ctx 
@@ -675,10 +668,45 @@ let rec tc ctx t =
     then ComputationType (Total, typ)
     else failwith "falsity elimination constraints not satisfied"
   )
+  | BoolRec (choice, cond, on_true, on_false) -> (
+        let cond_pre_type = tc_is_total ctx cond in
+        let (_, domain, range) = tc ctx choice |> reduce_to_product_type ctx in
+        if not (conv ctx cond_pre_type Bool && conv ctx domain cond_pre_type) then failwith "bool range check failed";
+        if
+          conv ctx (tc ctx on_true) (App (choice, True)) &&
+          conv ctx (tc ctx on_false) (App (choice, False))
+        then (      
+          if mem_var 0 range then failwith "range can't depend on input"
+          else (
+            let range = lower1 range in
+            if conv ctx range Type || conv ctx range Proposition || conv ctx range (Kind 0) then (App (choice, cond))
+            else failwith "BoolRec can build only Types, Propositions and Kind[0]s"
+          )
+        ) else failwith "BoolRec constraints not satisfied"
+  )
+  | BoolRecIndep (cond, on_true, on_false) -> (
+        let (cond_eff, cond_pre_type) = tc ctx cond |> reduce_to_computation_type ctx in
+        let on_true_typ = tc ctx on_true in
+        if not (conv ctx cond_pre_type Bool) then failwith "bool range check failed";
+        if
+          conv ctx on_true_typ (tc ctx on_false)
+        then (
+          if conv ctx on_true_typ Proposition || conv ctx on_true_typ Type then (
+            if conv ctx cond_eff Total then on_true_typ
+            else failwith "Condition of an if which constructs a `Prop` or `Type`, must be total"
+          )
+          else if conv ctx (tc ctx on_true_typ) Type then (
+             let (on_true_eff, on_true_pre_typ) = reduce_to_computation_type ctx on_true_typ in
+             ComputationType (MaxEffect (cond_eff, on_true_eff), on_true_pre_typ) 
+          )
+          else failwith "range can only be Prop, Type or a Type"
+        ) else failwith "BoolRecIndep constraints not satisfied"
+  )
 and tc_function_kind ctx s domain range =
   let range_typ = tc (add_var ctx (s, domain)) range |> find_nf ctx |> Option.get 
   and domain = domain |> find_nf ctx |> Option.get in
   match (domain, range_typ) with
+  (* User functions *)
   | (_, Type) when conv ctx (tc ctx domain) PreType -> PreType
   | (_, Type) when conv ctx (tc ctx domain) Proposition -> PreType
   | (PreType, Type) -> Kind 1
@@ -686,21 +714,27 @@ and tc_function_kind ctx s domain range =
   | (ComputationKind, Type) -> Kind 2
   | (ComputationKind, Kind 1) -> Kind 2
   | (ComputationKind, Kind 2) -> Kind 2
+  (* Propositions *)
   | (Proposition, Kind 0) when conv (add_var ctx (s, domain)) range Proposition -> Proposition
   | (Proposition, Proposition) -> Proposition
   | (_, Proposition) when conv ctx (tc ctx domain) PreType -> Proposition
   | (PreType, Proposition) -> Proposition
   | (_, Proposition) when conv ctx (tc ctx domain) Proposition -> Proposition
   | (_ , Proposition) when conv ctx (tc ctx domain) Predicate -> Proposition
-  | (_, _) when conv ctx range Proposition && conv ctx (tc ctx domain) PreType -> Predicate
+  (* Predicates *)
+  | (_, _) when conv ctx (tc ctx domain) PreType && conv ctx range Proposition -> Predicate
+  | (PreType, Predicate) -> Predicate
   | (_, Predicate) when conv ctx (tc ctx domain) PreType -> Predicate
+  (* Type builders *)
+  | (_, _) when conv ctx (tc ctx domain) PreType && conv ctx range Type -> TypeBuilder
+  | (_, TypeBuilder) when conv ctx (tc ctx domain) PreType -> TypeBuilder
+  | (PreType, TypeBuilder) -> TypeBuilder
   | _ -> failwith "Untypable function"
 and tc_is_program_value_type ctx t = conv ctx (tc ctx t) PreType
 and tc_is_program_function ctx s domain range = (tc_function_kind ctx s domain range = PreType)
-and wf ctx =
-  match ctx with
-  | [] -> ()
-  | h :: t -> (
-    let _ = tc t h in
-    wf t
-  )
+and wf _ = ()
+and tc_is_total ctx t =
+  let typ = tc ctx t in
+  let (eff, typ) = reduce_to_computation_type ctx typ in
+  if conv ctx eff Total then typ
+  else failwith "The term is not total"

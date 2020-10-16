@@ -153,8 +153,8 @@ let launch_test t =
 let launch r =
   match r with
   | Test t -> launch_test t
-  | Run -> Top.top_level_main_terminal (Top.allocate_ctx ()) |> fun _ -> ()
-  | RunFile file -> Top.top_level_main_file (Top.allocate_ctx ()) file |> fun _ -> ()
+  | Run -> Top.top_level_main_terminal (Top.make_empty_ctx ()) |> fun _ -> ()
+  | RunFile file -> Top.top_level_main_file (Top.make_empty_ctx ()) file |> fun _ -> ()
 
 let help_message () =
   Printf.printf "This message is displayed either when you provide wrong args or call `trust help`\n";

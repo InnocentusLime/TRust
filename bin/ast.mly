@@ -30,12 +30,14 @@
 %token TOTAL DIVERGENT MAX_COMP_KIND
 %token <string> STRING
 %token FORALL SLASH DOT
-%token PROPOSITION TYPE PRE_TYPE KIND COMPUTATION_KIND PREDICATE
+%token PROPOSITION TYPE PRE_TYPE KIND COMPUTATION_KIND PREDICATE TYPE_BUILDER
 %token QUIT RESET AXIOM TC_IR_TERM IR_DEFINITION IR_PRINT_DEFINITION
+%token IR_IS_CONV IR_SIMPL IR_LOAD_MOD
 %token REC
 %token AND_INTRO OR_INTRO_L OR_INTRO_R AND_ELIM_L AND_ELIM_R OR_ELIM EQ_INTRO EQ_ELIM FALSE_ELIM_PROP FALSE_ELIM_TYPE
 %token FN_PTR_TYPE DEREF_FN_PTR
 %token TRUTH PROOF_OF_TRUTH FALSITY
+%token BOOL_TRUE BOOL_FALSE BOOL_TYPE
 
 %nonassoc EQ
 %right PROP_IMPLICATION FORALL
@@ -161,6 +163,13 @@ unwrapped_effectful_typs:
 ptr_list:
 | FN_PTR { $1 :: [] }
 | FN_PTR COMMA ptr_list { $1 :: $3 }
+conditional_ir_term:
+| IF LANGLE ir_term RANGLE ir_term LBRACE ir_term RBRACE { IrTerm.BoolRec ($3, $5, $7, IrTerm.Nil) }
+| IF LANGLE ir_term RANGLE ir_term LBRACE ir_term RBRACE ELSE LBRACE ir_term RBRACE { IrTerm.BoolRec ($3, $5, $7, $11) }
+| IF LANGLE ir_term RANGLE ir_term LBRACE ir_term RBRACE ELSE conditional_ir_term { IrTerm.BoolRec ($3, $5, $7, $10) }
+| IF ir_term LBRACE ir_term RBRACE { IrTerm.BoolRecIndep ($2, $4, IrTerm.Nil) }
+| IF ir_term LBRACE ir_term RBRACE ELSE LBRACE ir_term RBRACE { IrTerm.BoolRecIndep ($2, $4, $8) }
+| IF ir_term LBRACE ir_term RBRACE ELSE conditional_ir_term { IrTerm.BoolRecIndep ($2, $4, $7) }
 atom_ir_term:
 | LPARAN ir_term RPARAN { $2 }
 | IDENT { IrTerm.Var $1 }
@@ -175,6 +184,7 @@ atom_ir_term:
 | KIND LSQBR INT RSQBR { IrTerm.Kind (int_of_string $3) }
 | COMPUTATION_KIND { IrTerm.ComputationKind }
 | PREDICATE { IrTerm.Predicate }
+| TYPE_BUILDER { IrTerm.TypeBuilder }
 | atom_ir_term LANGLE ir_term RANGLE { IrTerm.ComputationType ($1, $3) }
 | REC LSQBR ptr_list RSQBR LSQBR INT RSQBR { IrTerm.Recursion ($3, int_of_string $6) }
 | MAX_COMP_KIND LPARAN ir_term COMMA ir_term RPARAN { IrTerm.MaxEffect ($3, $5) }
@@ -193,6 +203,10 @@ atom_ir_term:
 | EQ_ELIM LPARAN ir_term COMMA ir_term COMMA ir_term RPARAN { IrTerm.EqElim ($3, $5, $7) }
 | FALSE_ELIM_PROP LPARAN ir_term COMMA ir_term RPARAN { IrTerm.FalsityEliminationProposition ($3, $5) }
 | FALSE_ELIM_TYPE LPARAN ir_term COMMA ir_term RPARAN { IrTerm.FalsityEliminationType ($3, $5) }
+| BOOL_TRUE { IrTerm.True }
+| BOOL_FALSE { IrTerm.False }
+| BOOL_TYPE { IrTerm.Bool }
+| conditional_ir_term { $1 }
 app_ir_term:
 | app_ir_term atom_ir_term { IrTerm.App ($1, $2) }
 | atom_ir_term { $1 }
@@ -226,6 +240,9 @@ toplevel_precommand:
 | TC_IR_TERM ir_term { TopCmd.TcIrTerm $2 }
 | IR_DEFINITION IDENT def_args EQ ir_term { TopCmd.IrDefinition($2, $3, $5) } 
 | IR_PRINT_DEFINITION IDENT { TopCmd.IrPrintDef $2 }
+| IR_IS_CONV atom_ir_term atom_ir_term { TopCmd.IrIsConv ($2, $3) }
+| IR_SIMPL ir_term { TopCmd.IrSimpl $2 }
+| IR_LOAD_MOD STRING { TopCmd.IrLoadModule $2 } 
 toplevel_command:
 | toplevel_precommand DOT { $1 }
 maybe_toplevel_command:

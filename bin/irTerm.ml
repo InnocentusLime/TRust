@@ -7,8 +7,12 @@ type term =
 | IntegerType
 | IntegerConst of int
 | FunctionPointer of string
-| Proposition | Type | PreType | ComputationKind | Predicate
-| Kind of int 
+| Proposition | Type | PreType | ComputationKind | Predicate | TypeBuilder
+| Kind of int
+| True | False
+| Bool
+| Unit
+| Nil
 (* Built-in ops *)
 | ComputationType of term * term
 | Opposite of term
@@ -37,3 +41,5 @@ type term =
 | EqElim of term * term * term
 | FalsityEliminationProposition of term * term
 | FalsityEliminationType of term * term
+| BoolRec of term * term * term * term
+| BoolRecIndep of term * term * term

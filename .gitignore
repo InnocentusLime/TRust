@@ -3,3 +3,8 @@
 *.cmi
 *.o
 *.d
+*.output
+*.exe
+*.cmt
+*.db
+*.digest-db

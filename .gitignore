@@ -2,3 +2,7 @@
 *.glob
 *.aux
 *.exe
+*.cmo
+*.cmx
+*.cmi
+*.o

@@ -1,0 +1,5 @@
+tc_ir_term (if<\x:bool.x = x :> bool> true { eq_intro(true, bool) } else { eq_intro(false, bool) }).
+tc_ir_term (if true { total<int> } else { total<bool> }).
+tc_ir_term (if<\x:bool.if x { total<int> } else { total<bool> }> true { 2 } else { false }).
+axiom y : divergent<bool>.
+tc_ir_term (if y { total<int> } else { total<bool> }).

@@ -43,3 +43,8 @@ type term =
 | FalsityEliminationType of term * term
 | BoolRec of term * term * term * term
 | BoolRecIndep of term * term * term
+
+(*
+type ParsingError =
+| NotAConstant
+*)

@@ -1,5 +1,5 @@
 %{
-(*INSRTIONEND*)
+let parse_error s = Printf.printf "%s\n" s
 %}
 
 %token TRUTH FALSITY
@@ -163,15 +163,17 @@ unwrapped_effectful_typs:
 ptr_list:
 | FN_PTR { $1 :: [] }
 | FN_PTR COMMA ptr_list { $1 :: $3 }
+conditional_ir_term_start:
+| IF LSQBR ir_term RSQBR ir_term { fun on_true on_false -> IrTerm.BoolRec ($3, $5, on_true, on_false) }
+| IF ir_term { fun on_true on_false -> IrTerm.BoolRecIndep ($2, on_true, on_false) }
+| IF LSQBR error RSQBR { (*parse_error "If's choice function must be a valid ir term";*) raise Parse_error }
+| IF error { (*parse_error "If's condition must be a valid ir term";*) raise Parse_error }
+| IF LSQBR ir_term RSQBR error { (*parse_error "If's condition must be a valid ir term";*) raise Parse_error }
 conditional_ir_term:
-| IF LANGLE ir_term RANGLE ir_term LBRACE ir_term RBRACE { IrTerm.BoolRec ($3, $5, $7, IrTerm.Nil) }
-| IF LANGLE ir_term RANGLE ir_term LBRACE ir_term RBRACE ELSE LBRACE ir_term RBRACE { IrTerm.BoolRec ($3, $5, $7, $11) }
-| IF LANGLE ir_term RANGLE ir_term LBRACE ir_term RBRACE ELSE conditional_ir_term { IrTerm.BoolRec ($3, $5, $7, $10) }
-| IF ir_term LBRACE ir_term RBRACE { IrTerm.BoolRecIndep ($2, $4, IrTerm.Nil) }
-| IF ir_term LBRACE ir_term RBRACE ELSE LBRACE ir_term RBRACE { IrTerm.BoolRecIndep ($2, $4, $8) }
-| IF ir_term LBRACE ir_term RBRACE ELSE conditional_ir_term { IrTerm.BoolRecIndep ($2, $4, $7) }
-atom_ir_term:
-| LPARAN ir_term RPARAN { $2 }
+| conditional_ir_term_start LBRACE ir_term RBRACE { $1 $3 IrTerm.Nil }
+| conditional_ir_term_start LBRACE ir_term RBRACE ELSE LBRACE ir_term RBRACE { $1 $3 $7 }
+| conditional_ir_term_start LBRACE ir_term RBRACE ELSE conditional_ir_term { $1 $3 $6 }
+const_ir_term:
 | IDENT { IrTerm.Var $1 }
 | TOTAL { IrTerm.Total }
 | DIVERGENT { IrTerm.Divergent }
@@ -185,7 +187,13 @@ atom_ir_term:
 | COMPUTATION_KIND { IrTerm.ComputationKind }
 | PREDICATE { IrTerm.Predicate }
 | TYPE_BUILDER { IrTerm.TypeBuilder }
-| atom_ir_term LANGLE ir_term RANGLE { IrTerm.ComputationType ($1, $3) }
+| TRUTH { IrTerm.Truth }
+| PROOF_OF_TRUTH { IrTerm.ProofOfTruth }
+| FALSITY { IrTerm.Falsity }
+| BOOL_TRUE { IrTerm.True }
+| BOOL_FALSE { IrTerm.False }
+| BOOL_TYPE { IrTerm.Bool }
+constructor_ir_term:
 | REC LSQBR ptr_list RSQBR LSQBR INT RSQBR { IrTerm.Recursion ($3, int_of_string $6) }
 | MAX_COMP_KIND LPARAN ir_term COMMA ir_term RPARAN { IrTerm.MaxEffect ($3, $5) }
 | AND_INTRO LPARAN ir_term COMMA ir_term RPARAN { IrTerm.AndIntroduction ($3, $5) }
@@ -197,16 +205,22 @@ atom_ir_term:
 | OR_ELIM LPARAN ir_term COMMA ir_term COMMA ir_term RPARAN { IrTerm.OrElimination ($3, $5, $7) }
 | FN_PTR_TYPE LSQBR ir_term RSQBR { IrTerm.FnPtrType $3 }
 | DEREF_FN_PTR LSQBR ir_term RSQBR { IrTerm.DerefFnPtr $3 }
-| TRUTH { IrTerm.Truth }
-| PROOF_OF_TRUTH { IrTerm.ProofOfTruth }
-| FALSITY { IrTerm.Falsity }
 | EQ_ELIM LPARAN ir_term COMMA ir_term COMMA ir_term RPARAN { IrTerm.EqElim ($3, $5, $7) }
 | FALSE_ELIM_PROP LPARAN ir_term COMMA ir_term RPARAN { IrTerm.FalsityEliminationProposition ($3, $5) }
 | FALSE_ELIM_TYPE LPARAN ir_term COMMA ir_term RPARAN { IrTerm.FalsityEliminationType ($3, $5) }
-| BOOL_TRUE { IrTerm.True }
-| BOOL_FALSE { IrTerm.False }
-| BOOL_TYPE { IrTerm.Bool }
+computation_type_ir_term:
+| atom_ir_term LANGLE ir_term RANGLE { IrTerm.ComputationType ($1, $3) }
+| error LANGLE ir_term RANGLE { parse_error "The expression to the left of the angeled brackets must be a valid atom term\n"; raise Parse_error }
+| error LANGLE error RANGLE { parse_error "The expression to the left of the angeled brackets must be a valid atom term\n"; raise Parse_error }
+| atom_ir_term LANGLE error RANGLE { parse_error "The expression in the angeled brackets must be a valid ir term\n"; raise Parse_error }
+grouped_expression_ir_term:
+| LPARAN ir_term RPARAN { $2 }
+atom_ir_term:
+| const_ir_term { $1 }
+| constructor_ir_term { $1 }
+| computation_type_ir_term { $1 }
 | conditional_ir_term { $1 }
+| grouped_expression_ir_term { $1 }
 app_ir_term:
 | app_ir_term atom_ir_term { IrTerm.App ($1, $2) }
 | atom_ir_term { $1 }
@@ -242,7 +256,7 @@ toplevel_precommand:
 | IR_PRINT_DEFINITION IDENT { TopCmd.IrPrintDef $2 }
 | IR_IS_CONV atom_ir_term atom_ir_term { TopCmd.IrIsConv ($2, $3) }
 | IR_SIMPL ir_term { TopCmd.IrSimpl $2 }
-| IR_LOAD_MOD STRING { TopCmd.IrLoadModule $2 } 
+| IR_LOAD_MOD STRING { TopCmd.IrLoadModule $2 }
 toplevel_command:
 | toplevel_precommand DOT { $1 }
 maybe_toplevel_command:

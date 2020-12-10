@@ -13,12 +13,18 @@ let read_command_terminal () =
   let cmd = ref TopCmd.Quit
   and success = ref false in
   while not !success do
+    print_string "> ";
+    let s = read_line () in
+    let lex = Lexing.from_string s in
     try (
-      print_string "> ";
-      let s = read_line () in
-      let result = Ast.toplevel_command Lex.lex (Lexing.from_string s) in
+      let result = Ast.toplevel_command Lex.lex lex in
       success := true; cmd := result
-    ) with Parsing.Parse_error -> Printf.printf "Failed to parse command.\n"
+    ) 
+    with 
+    | Parsing.Parse_error -> (
+      let toc = Lexing.lexeme lex in
+      Printf.printf "Failed to parse command\nI was having issues with token \"%s\".\n" toc
+    )
   done;
   !cmd
 

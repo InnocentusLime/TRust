@@ -465,11 +465,19 @@ let rec tc ctx t =
       match arg_typ |> tc ctx |> find_nf ctx with
       | Some Type -> ( 
         let (arg_eff, arg_pre_typ) = reduce_to_computation_type ctx arg_typ in
-        if conv ctx domain arg_pre_typ then ComputationType (MaxEffect (body_eff, MaxEffect (func_eff, arg_eff)), top_subst arg body_pre_typ)
+        if conv ctx domain arg_pre_typ then 
+            ComputationType (
+                MaxEffect (top_subst arg body_eff, MaxEffect (func_eff, arg_eff)), 
+                top_subst arg body_pre_typ
+            )
         else failwith "domain type and arg type are not convertible"
       )
       | Some Proposition -> (
-        if conv ctx domain arg_typ then ComputationType (MaxEffect (func_eff, body_eff), top_subst arg body_pre_typ)
+        if conv ctx domain arg_typ then 
+            ComputationType (
+                MaxEffect (top_subst arg body_eff, func_eff), 
+                top_subst arg body_pre_typ
+            )
         else failwith "domain type and arg type are not convertible"
       )
       | _ -> failwith "arg has an illegal kind"
@@ -530,9 +538,11 @@ let rec tc ctx t =
   )
   | Product (s, domain, range) -> tc_function_kind ctx s domain range 
   | Sequence (head, tail) -> (
-    let _ = tc ctx head
+    let t' = tc ctx head
     and t = tc ctx tail in
-    t
+    let (eff', _) = reduce_to_computation_type ctx t'
+    and (eff, typ) = reduce_to_computation_type ctx t in
+    ComputationType (MaxEffect(eff', eff), typ)
   )
   | MaxEffect (l, r) -> (
     if conv ctx (tc ctx l) ComputationKind && conv ctx (tc ctx r) ComputationKind then ComputationKind

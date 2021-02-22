@@ -166,7 +166,7 @@ ptr_list:
 conditional_ir_term_start:
 | IF LSQBR ir_term RSQBR ir_term { fun on_true on_false -> IrTerm.BoolRec ($3, $5, on_true, on_false) }
 | IF ir_term { fun on_true on_false -> IrTerm.BoolRecIndep ($2, on_true, on_false) }
-| IF LSQBR error RSQBR { (*parse_error "If's choice function must be a valid ir term";*) raise Parse_error }
+| IF LSQBR error { (*parse_error "If's choice function must be a valid ir term";*) raise Parse_error }
 | IF error { (*parse_error "If's condition must be a valid ir term";*) raise Parse_error }
 | IF LSQBR ir_term RSQBR error { (*parse_error "If's condition must be a valid ir term";*) raise Parse_error }
 conditional_ir_term:
@@ -210,9 +210,8 @@ constructor_ir_term:
 | FALSE_ELIM_TYPE LPARAN ir_term COMMA ir_term RPARAN { IrTerm.FalsityEliminationType ($3, $5) }
 computation_type_ir_term:
 | atom_ir_term LANGLE ir_term RANGLE { IrTerm.ComputationType ($1, $3) }
-| error LANGLE ir_term RANGLE { parse_error "The expression to the left of the angeled brackets must be a valid atom term\n"; raise Parse_error }
-| error LANGLE error RANGLE { parse_error "The expression to the left of the angeled brackets must be a valid atom term\n"; raise Parse_error }
-| atom_ir_term LANGLE error RANGLE { parse_error "The expression in the angeled brackets must be a valid ir term\n"; raise Parse_error }
+//| error { parse_error "The expression to the left of the angeled brackets must be a valid atom term\n"; raise Parse_error }
+//| atom_ir_term LANGLE error { parse_error "The expression in the angeled brackets must be a valid ir term\n"; raise Parse_error }
 grouped_expression_ir_term:
 | LPARAN ir_term RPARAN { $2 }
 atom_ir_term:

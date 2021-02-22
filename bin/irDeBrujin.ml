@@ -575,7 +575,7 @@ let rec tc ctx t =
     if mem_var 0 on_left_range || mem_var 0 on_right_range then failwith "or_elim's result can't depend on input";
     let (on_left_range, on_right_range) = (lower1 on_left_range, lower1 on_right_range) in
     if 
-      conv ctx l_prop Proposition && conv ctx r_prop Proposition &&
+      conv ctx (tc ctx l_prop) Proposition && conv ctx (tc ctx r_prop) Proposition &&
       conv ctx on_left_domain l_prop && conv ctx on_right_domain r_prop &&
       conv ctx on_left_range on_right_range
     then on_left_range

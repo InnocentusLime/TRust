@@ -56,8 +56,8 @@ let rec execute_command ctx cmd =
         (Conv.IrToString.string_of_de_brujin_ir_term (Conv.IrToString.translate_ctx_from_typing_ctx !ctx) typ)
       ) with
       | Parsing.Parse_error -> Printf.printf "Syntax error\n"
-      (*| Failure s -> Printf.printf "Failure:\n%s\n" s
-      | _ -> Printf.printf "Err\n"*)
+      | Failure s -> Printf.printf "Failure:\n%s\n" s
+      | _ -> Printf.printf "Err\n"
     )
     | TopCmd.IrDefinition (name, args, body) -> (
       try (
@@ -143,12 +143,12 @@ let rec execute_command ctx cmd =
     )
 and execute_file ctx path =
   Printf.printf "Executing \"%s\" path...\n\n" path;
-  (*let old_ctx = ctx in*)
+  let old_ctx = ctx in
   let ctx = ref ctx in
   let chan = open_in_bin path in
   let lexing = Lexing.from_channel chan in
   let cmd = ref None in
-  (*try ( *)
+  try ( 
     while (cmd := Ast.maybe_toplevel_command Lex.lex lexing; !cmd <> None && !cmd <> Some TopCmd.Quit) do
       execute_command ctx (Option.get !cmd);
       Printf.printf "\n";
@@ -161,13 +161,11 @@ and execute_file ctx path =
       | Some _ -> failwith "Unreachable\n"
     );
     !ctx
-  (*
-  )
   with 
   | _ -> (
     Printf.printf "Encountered an error when executing the file\n";
     old_ctx
-  )*)
+  )
 
 let top_level_main command_reader ctx =
   let ctx = ref ctx in

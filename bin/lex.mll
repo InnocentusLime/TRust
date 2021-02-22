@@ -50,6 +50,7 @@
     Hashtbl.add temp "ir_is_conv" IR_IS_CONV;
     Hashtbl.add temp "ir_simpl" IR_SIMPL;
     Hashtbl.add temp "ir_load_mod" IR_LOAD_MOD;
+    Hashtbl.add temp "help" HELP;
     temp
   )
 

@@ -8,3 +8,4 @@ type command =
 | IrIsConv of IrTerm.term * IrTerm.term
 | IrSimpl of IrTerm.term
 | IrLoadModule of string
+| Help

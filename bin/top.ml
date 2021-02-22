@@ -56,8 +56,8 @@ let rec execute_command ctx cmd =
         (Conv.IrToString.string_of_de_brujin_ir_term (Conv.IrToString.translate_ctx_from_typing_ctx !ctx) typ)
       ) with
       | Parsing.Parse_error -> Printf.printf "Syntax error\n"
-      | Failure s -> Printf.printf "Failure:\n%s\n" s
-      | _ -> Printf.printf "Err\n"
+      (*| Failure s -> Printf.printf "Failure:\n%s\n" s
+      | _ -> Printf.printf "Err\n"*)
     )
     | TopCmd.IrDefinition (name, args, body) -> (
       try (
@@ -124,14 +124,31 @@ let rec execute_command ctx cmd =
       | Failure s -> Printf.printf "Failure:\n%s\n" s
       | _ -> Printf.printf "Err\n" 
     )
+    | TopCmd.Help -> (
+        Printf.printf "%s"
+        (
+            "\
+            quit --- exit TRust toplevel\n\
+            reset --- reset the current global context, making it empty\n\
+            axiom [IDENT] : [TYPE] --- add a variable named [IDENT] of type [TYPE] to global context, essentially making an axiom\n\
+            tc_ir_term [TERM] --- typecheck [TERM] and print its type\n\
+            ir_def [IDENT] (arg1 : T1) ... (argn : Tn) = [TERM] --- declare a function with body equal to [TERM]\n\
+            ir_print_def [IDENT] --- print body of function [IDENT]\n\
+            ir_is_conv [TERM] [TERM] --- check if the two terms are convertible\n\
+            ir_simpl [TERM] --- compute normal form of a term (note: non-halting terms will make this command work infinitely)\n\
+            ir_load_mod [PATH_IN_QUOTES] --- load a TRust module, essentially exeucting all commands inside it\n\
+            help --- prints this message\n\
+            "
+        )
+    )
 and execute_file ctx path =
   Printf.printf "Executing \"%s\" path...\n\n" path;
-  let old_ctx = ctx in
+  (*let old_ctx = ctx in*)
   let ctx = ref ctx in
   let chan = open_in_bin path in
   let lexing = Lexing.from_channel chan in
   let cmd = ref None in
-  try (
+  (*try ( *)
     while (cmd := Ast.maybe_toplevel_command Lex.lex lexing; !cmd <> None && !cmd <> Some TopCmd.Quit) do
       execute_command ctx (Option.get !cmd);
       Printf.printf "\n";
@@ -144,12 +161,13 @@ and execute_file ctx path =
       | Some _ -> failwith "Unreachable\n"
     );
     !ctx
+  (*
   )
   with 
   | _ -> (
     Printf.printf "Encountered an error when executing the file\n";
     old_ctx
-  )
+  )*)
 
 let top_level_main command_reader ctx =
   let ctx = ref ctx in

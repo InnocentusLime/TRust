@@ -32,7 +32,7 @@ let parse_error s = Printf.printf "%s\n" s
 %token FORALL SLASH DOT
 %token PROPOSITION TYPE PRE_TYPE KIND COMPUTATION_KIND PREDICATE TYPE_BUILDER
 %token QUIT RESET AXIOM TC_IR_TERM IR_DEFINITION IR_PRINT_DEFINITION
-%token IR_IS_CONV IR_SIMPL IR_LOAD_MOD
+%token IR_IS_CONV IR_SIMPL IR_LOAD_MOD HELP
 %token REC
 %token AND_INTRO OR_INTRO_L OR_INTRO_R AND_ELIM_L AND_ELIM_R OR_ELIM EQ_INTRO EQ_ELIM FALSE_ELIM_PROP FALSE_ELIM_TYPE
 %token FN_PTR_TYPE DEREF_FN_PTR
@@ -166,9 +166,9 @@ ptr_list:
 conditional_ir_term_start:
 | IF LSQBR ir_term RSQBR ir_term { fun on_true on_false -> IrTerm.BoolRec ($3, $5, on_true, on_false) }
 | IF ir_term { fun on_true on_false -> IrTerm.BoolRecIndep ($2, on_true, on_false) }
-| IF LSQBR error { (*parse_error "If's choice function must be a valid ir term";*) raise Parse_error }
-| IF error { (*parse_error "If's condition must be a valid ir term";*) raise Parse_error }
-| IF LSQBR ir_term RSQBR error { (*parse_error "If's condition must be a valid ir term";*) raise Parse_error }
+//| IF LSQBR error { (*parse_error "If's choice function must be a valid ir term";*) raise Parse_error }
+//| IF error { (*parse_error "If's condition must be a valid ir term";*) raise Parse_error }
+//| IF LSQBR ir_term RSQBR error { (*parse_error "If's condition must be a valid ir term";*) raise Parse_error }
 conditional_ir_term:
 | conditional_ir_term_start LBRACE ir_term RBRACE { $1 $3 IrTerm.Nil }
 | conditional_ir_term_start LBRACE ir_term RBRACE ELSE LBRACE ir_term RBRACE { $1 $3 $7 }
@@ -256,6 +256,7 @@ toplevel_precommand:
 | IR_IS_CONV atom_ir_term atom_ir_term { TopCmd.IrIsConv ($2, $3) }
 | IR_SIMPL ir_term { TopCmd.IrSimpl $2 }
 | IR_LOAD_MOD STRING { TopCmd.IrLoadModule $2 }
+| HELP { TopCmd.Help }
 toplevel_command:
 | toplevel_precommand DOT { $1 }
 maybe_toplevel_command:

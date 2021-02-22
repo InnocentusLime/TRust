@@ -161,6 +161,7 @@ and execute_file ctx path =
       | Some _ -> failwith "Unreachable\n"
     );
     !ctx
+  )
   with 
   | _ -> (
     Printf.printf "Encountered an error when executing the file\n";

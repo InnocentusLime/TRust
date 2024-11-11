@@ -18,3 +18,10 @@ To build the project you will need:
 
 1. cd into the repository root
 2. Run `dune exec trust`
+
+### Debugging
+
+OCaml has a decent compatability with gdb. While there is `ocamldebug`, GDB
+is much better as a tool overall.
+
+To debug TRust, simply run `debug.sh`. 

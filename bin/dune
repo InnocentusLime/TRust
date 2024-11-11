@@ -1,7 +1,16 @@
 (executable
   (name main)
+  (public_name trust)
   (libraries str)
   (modes byte exe)
-  (ocamlc_flags -g)
-)
+  (ocamlc_flags -g))
 
+(rule
+ (targets lex.ml)
+ (deps (:mll lex.mll))
+ (action (run ocamllex %{mll})))
+
+(rule
+ (targets ast.ml ast.mli)
+ (deps (:mly ast.mly))
+ (action (run ocamlyacc -v %{mly})))

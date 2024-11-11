@@ -8,3 +8,8 @@
 *.cmt
 *.db
 *.digest-db
+bin/lex.ml
+bin/ast.ml
+bin/ast.mli
+_build/
+*.swp

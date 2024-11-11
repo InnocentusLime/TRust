@@ -13,3 +13,4 @@ bin/ast.ml
 bin/ast.mli
 _build/
 *.swp
+.merlin

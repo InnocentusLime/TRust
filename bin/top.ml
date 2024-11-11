@@ -176,9 +176,7 @@ let top_level_main command_reader ctx =
   done;
   !ctx
 
-let top_level_main_terminal ctx = top_level_main read_command_terminal ctx
-
-let top_level_main_file ctx path = top_level_main_terminal (execute_file ctx path)
+let run ctx = top_level_main read_command_terminal ctx
 
 let make_empty_ctx () = IrDeBrujin.empty_ctx
 

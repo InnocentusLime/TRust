@@ -52,12 +52,11 @@ let parse_error s = Printf.printf "%s\n" s
 %nonassoc CALL
 %left COMMENT
 
-%start rust_file expression ir_term toplevel_command maybe_toplevel_command 
+%start rust_file expression ir_term toplevel_command 
 %type <RustTerm.item list> rust_file
 %type <RustTerm.expr> expression
 %type <IrTerm.term> ir_term
 %type <TopCmd.command> toplevel_command
-%type <TopCmd.command option> maybe_toplevel_command
 %%
 rust_file:
 | COMMENT rust_file { (RustTerm.Comment $1) :: $2 }
@@ -259,6 +258,3 @@ toplevel_precommand:
 | HELP { TopCmd.Help }
 toplevel_command:
 | toplevel_precommand DOT { $1 }
-maybe_toplevel_command:
-| toplevel_command { Some $1 }
-| EOF { None }

@@ -1,5 +1,6 @@
 {
   open Ast
+  exception Eof
 
   let keyword_table = (
     let temp = Hashtbl.create 256 in
@@ -109,4 +110,4 @@ parse
 | '=' { EQ }
 | '.' { DOT }
 | '\\' { SLASH }
-| eof { EOF }
+| eof { raise Eof }

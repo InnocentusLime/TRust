@@ -15,4 +15,5 @@ let () =
   Ui.debug "Verbose: %B\nQuit-on-done:%B\nModules:\n" !Ui.verbose !Ui.quiet;
   List.fold_right (fun x () -> Ui.debug "* %s\n" x) !modules ();
   Ui.info "Welcome to TRust. Type `help.` for available commands\n";
-  Top.run (Top.make_empty_ctx ()) |> fun _ -> ()
+  Out_channel.flush stdout;
+  Top.run IrDeBrujin.empty_ctx Top.cmds_from_stdin |> ignore

@@ -3,7 +3,9 @@ let cmds_from_chan ch =
     try
       let lexbuf = Lexing.from_channel ch in
       Some (Ast.toplevel_command Lex.lex lexbuf)
-    with Lex.Eof -> None
+    with 
+    | Lex.Eof -> None
+    | Parsing.Parse_error -> (Printf.printf "Syntax error\n"; None)
   in 
   Seq.of_dispenser gen
 
@@ -112,7 +114,6 @@ let rec process_command_throw ctx cmd =
 and process_command ctx cmd =
   try process_command_throw ctx cmd 
   with
-  | Parsing.Parse_error -> (Printf.printf "Syntax error\n"; ctx)
   | Failure s -> (Printf.printf "Failure:\n%s\n" s; ctx)
   | _ -> (Printf.printf "Err\n"; ctx)
 and run ctx cmd_seq =

@@ -96,7 +96,10 @@ let rec process_command_throw ctx cmd =
       );
     ctx
   )
-  | TopCmd.IrLoadModule _path -> failwith "todo"
+  | TopCmd.IrLoadModule path -> (
+    let f = In_channel.open_bin path in
+    run ctx (cmds_from_chan f)
+  )
   | TopCmd.Help -> (
     Ui.info "%s"
     (

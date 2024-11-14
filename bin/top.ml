@@ -13,15 +13,8 @@ let cmds_from_lexbuf l_c =
   Seq.of_dispenser gen
 
 let cmds_from_chan ch =
-  let gen () =
-    try
-      let lexbuf = Lexing.from_channel ch in
-      Some (Ast.toplevel_command Lex.lex lexbuf)
-    with
-    | Lex.Eof -> None
-    | Parsing.Parse_error -> (Printf.printf "Syntax error\n"; None)
-  in
-  Seq.of_dispenser gen
+  let l_c () = Lexing.from_channel ch in
+  cmds_from_lexbuf l_c
 
 let cmds_from_stdin =
   let l_c () =

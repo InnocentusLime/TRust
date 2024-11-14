@@ -13,7 +13,8 @@ let cmds_from_lexbuf l_c =
   Seq.of_dispenser gen
 
 let cmds_from_chan ch =
-  let l_c () = Lexing.from_channel ch in
+  let buff = Lexing.from_channel ch in
+  let l_c () = buff in
   cmds_from_lexbuf l_c
 
 let cmds_from_stdin =

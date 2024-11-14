@@ -10,10 +10,22 @@ let speclist =
    ("-q", Arg.Set Ui.quiet, "Quiet mode");
    ("-Q", Arg.Set quit_on_done, "Quit when done executing")]
 
+let try_mod f =
+  try Some (In_channel.open_bin f)
+  with Sys_error x -> (Ui.info "Failed to open \"%s\": %s\n" f x; None)
+
+let build_cmd_stream files =
+  let file_cmds =
+    files |> List.filter_map try_mod
+          |> List.map Top.cmds_from_chan
+          |> List.fold_left Seq.append Seq.empty
+  in
+  Seq.append file_cmds Top.cmds_from_stdin
+
 let () =
   Arg.parse speclist anon_fun usage_msg;
   Ui.debug "Verbose: %B\nQuit-on-done:%B\nModules:\n" !Ui.verbose !Ui.quiet;
   List.fold_right (fun x () -> Ui.debug "* %s\n" x) !modules ();
   Ui.info "Welcome to TRust. Type `help.` for available commands\n";
   Out_channel.flush stdout;
-  Top.run IrDeBrujin.empty_ctx Top.cmds_from_stdin |> ignore
+  Top.run IrDeBrujin.empty_ctx (build_cmd_stream !modules) |> ignore

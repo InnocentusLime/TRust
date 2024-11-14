@@ -5,9 +5,9 @@
   let keyword_table = (
     let temp = Hashtbl.create 256 in
     Hashtbl.add temp "let" LET;
-    Hashtbl.add temp "if" IF; 
-    Hashtbl.add temp "else" ELSE; 
-    Hashtbl.add temp "fn" FN; 
+    Hashtbl.add temp "if" IF;
+    Hashtbl.add temp "else" ELSE;
+    Hashtbl.add temp "fn" FN;
     Hashtbl.add temp "int" INT_T;
     Hashtbl.add temp "Falsity" FALSITY;
     Hashtbl.add temp "Truth" TRUTH;
@@ -21,7 +21,7 @@
     Hashtbl.add temp "PreType" PRE_TYPE;
     Hashtbl.add temp "Kind" KIND;
     Hashtbl.add temp "CompKind" COMPUTATION_KIND;
-    Hashtbl.add temp "rec" REC; 
+    Hashtbl.add temp "rec" REC;
     Hashtbl.add temp "max_comp_kind" MAX_COMP_KIND;
     Hashtbl.add temp "and_intro" AND_INTRO;
     Hashtbl.add temp "or_intro_l" OR_INTRO_L;
@@ -41,7 +41,7 @@
     Hashtbl.add temp "true" BOOL_TRUE;
     Hashtbl.add temp "false" BOOL_FALSE;
     Hashtbl.add temp "bool" BOOL_TYPE;
-    
+
     Hashtbl.add temp "reset" RESET;
     Hashtbl.add temp "quit" QUIT;
     Hashtbl.add temp "axiom" AXIOM;
@@ -72,8 +72,8 @@ let newline = '\n'
 let ident = (letter (alpha_num*)) | ('_'+ letter (alpha_num+))
 
 rule lex =
-parse          
-| "\"" (([^'"'])+ as s) "\"" { STRING s } 
+parse
+| "\"" (([^'"'])+ as s) "\"" { STRING s }
 | "=>" { FATARROW }
 | "\\/" { PROPOR }
 | "/\\" { PROPAND }

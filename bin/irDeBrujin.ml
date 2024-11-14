@@ -55,12 +55,12 @@ type term =
 (* build the call in shape of `callee arg1 arg2 arg3 ... argn` *)
 let build_call callee args = List.fold_left (fun acc x -> App (acc, x)) callee args
 
-let build_product args range = 
+let build_product args range =
   match args with
-  | (name, typ) :: t -> 
-    List.fold_left 
-    (fun acc (name, typ) -> Product (name, typ, acc)) 
-    (Product (name, typ, range)) 
+  | (name, typ) :: t ->
+    List.fold_left
+    (fun acc (name, typ) -> Product (name, typ, acc))
+    (Product (name, typ, range))
     t
   | [] -> failwith "no args"
 
@@ -126,7 +126,7 @@ let rec eq_terms l r =
   | (AndIntroduction (lx, ly), AndIntroduction (rx, ry)) -> eq_terms lx rx && eq_terms ly ry
   | (OrIntroductionL (lproof, lprop), OrIntroductionL (rproof, rprop)) -> eq_terms lproof rproof && eq_terms lprop rprop
   | (OrIntroductionR (lproof, lprop), OrIntroductionR (rproof, rprop)) -> eq_terms lproof rproof && eq_terms lprop rprop
-  | (OrElimination (lon_left, lon_right, lproof), OrElimination (ron_left, ron_right, rproof)) -> 
+  | (OrElimination (lon_left, lon_right, lproof), OrElimination (ron_left, ron_right, rproof)) ->
     eq_terms lon_left ron_left && eq_terms lon_right ron_right && eq_terms lproof rproof
   | (AndEliminationL (lproj, lproof), AndEliminationL (rproj, rproof)) -> eq_terms lproj rproj && eq_terms lproof rproof
   | (AndEliminationR (lproj, lproof), AndEliminationR (rproj, rproof)) -> eq_terms lproj rproj && eq_terms lproof rproof
@@ -202,7 +202,7 @@ let rec subst_rec n s t =
   | Subtract (x, y) -> Subtract (subst_rec n s x, subst_rec n s y)
   | Multiply (x, y) -> Multiply (subst_rec n s x, subst_rec n s y)
   | Recursion (l, i) -> Recursion (l, i)
-  | Product (str, dom, range) -> Product (str, subst_rec n s dom, subst_rec (n + 1) (lift1 s) range) 
+  | Product (str, dom, range) -> Product (str, subst_rec n s dom, subst_rec (n + 1) (lift1 s) range)
   | Sequence (head, tail) -> Sequence (subst_rec n s head, subst_rec n s tail)
   | AndIntroduction (x, y) -> AndIntroduction (subst_rec n s x, subst_rec n s y)
   | OrIntroductionL (proof, prop) -> OrIntroductionL (subst_rec n s proof, subst_rec n s prop)
@@ -229,7 +229,7 @@ let subst = subst_rec 0
 let top_subst s t = lower1 (subst (lift1 s) t)
 
 (* A function. That is what hides behind `FuncPtr[id]` *)
-type func = 
+type func =
 {
   (* It is assumed all args are ordered by their dependency on each other *)
   args : (string * term) list;
@@ -246,7 +246,7 @@ type typing_ctx =
   vars : (string * term) list;
 }
 
-let empty_ctx = 
+let empty_ctx =
 {
   lib = [];
   vars = [];
@@ -264,7 +264,7 @@ let rec red1 ctx t =
   | Var v -> Var v
   | Abs (s, dom, body) -> Abs (s, red1 ctx dom, body)
   | App (l, r) when not (is_value l) -> App (red1 ctx l, r)
-  | App (l, r) when not (is_value r) -> App (l, red1 ctx r) 
+  | App (l, r) when not (is_value r) -> App (l, red1 ctx r)
   | App (Abs (_, _, body), arg) -> top_subst arg body
   | App (Recursion (ptrs, id), arg) -> (
     let chosen_ptr = List.nth ptrs id in
@@ -305,7 +305,7 @@ let rec red1 ctx t =
   | ComputationType (x, y) when not (is_value x) -> ComputationType (red1 ctx x, y)
   | ComputationType (x, y) when not (is_value y) -> ComputationType (x, red1 ctx y)
   | DerefFnPtr (FunctionPointer i) -> value_of_func ctx i
-  | DerefFnPtr x when not (is_value x) -> DerefFnPtr (red1 ctx x) 
+  | DerefFnPtr x when not (is_value x) -> DerefFnPtr (red1 ctx x)
   | FnPtrType x when not (is_value x) -> FnPtrType (red1 ctx x)
   | Product (s, l, r) when not (is_value l) -> Product (s, red1 ctx l, r)
   | Product (s, l, r) when not (is_value r) -> Product (s, l, red1 ctx r)
@@ -325,15 +325,15 @@ let rec red1 ctx t =
   | BoolRecIndep (True, on_true, _) -> on_true
   | BoolRecIndep (False, _, on_false) -> on_false
   | _ -> t
-and is_value t = 
+and is_value t =
   match t with
   | Total | Divergent | IntegerType
-  | IntegerConst _ | FunctionPointer _ 
+  | IntegerConst _ | FunctionPointer _
   | Proposition | Type | Kind _
   | Recursion _ | Truth | ProofOfTruth | Falsity
   | Bool | True | False | TypeBuilder -> true
-  | Abs (_, domain, _) -> is_value domain  
-  | Product (_, domain, range) -> is_value domain && is_value range 
+  | Abs (_, domain, _) -> is_value domain
+  | Product (_, domain, range) -> is_value domain && is_value range
   | ComputationType (eff, typ) -> is_value eff && is_value typ
   | AndIntroduction (l, r) -> is_value l && is_value r
   | OrIntroductionL (l_proof, r_prop) -> is_value l_proof && is_value r_prop
@@ -343,7 +343,7 @@ and is_value t =
   | FnPtrType x -> is_value x
   | Eq (l, r, typ) -> is_value l && is_value r && is_value typ
   | EqIntro (value, typ) -> is_value value && is_value typ
-  | _ -> false 
+  | _ -> false
 
 let rec reduce_to_computation_type ctx t =
   match t with
@@ -365,7 +365,7 @@ let rec reduce_to_product_type ctx t =
 
 let rec reduce_to_or_type ctx t =
   match t with
-  | Or (x, y) -> (x, y) 
+  | Or (x, y) -> (x, y)
   | _ -> (
     let t' = red1 ctx t in
     if eq_terms t t' then failwith "The value can't be reduced to a disjunction type"
@@ -403,7 +403,7 @@ let is_nf ctx t = eq_terms t (red1 ctx t)
 
 let rec find_nf ?(limit=None) ctx t =
   match limit with
-  | None -> if is_nf ctx t then Some t else find_nf ctx (red1 ctx t)  
+  | None -> if is_nf ctx t then Some t else find_nf ctx (red1 ctx t)
   | Some limit -> (
     if limit = 0 && is_nf ctx t then Some t
     else if limit > 0 then find_nf ~limit:(Some (limit - 1)) ctx (red1 ctx t)
@@ -411,7 +411,7 @@ let rec find_nf ?(limit=None) ctx t =
     else None
   )
 
-let beta_eq ctx l r = 
+let beta_eq ctx l r =
   match (find_nf ctx l, find_nf ctx r) with
   | (Some l, Some r) -> eq_terms l r
   | _ -> false
@@ -463,31 +463,31 @@ let rec tc ctx t =
       let _ = tc_function_kind ctx s domain range in
       let (body_eff, body_pre_typ) = reduce_to_computation_type ctx range in
       match arg_typ |> tc ctx |> find_nf ctx with
-      | Some Type -> ( 
+      | Some Type -> (
         let (arg_eff, arg_pre_typ) = reduce_to_computation_type ctx arg_typ in
-        if conv ctx domain arg_pre_typ then 
+        if conv ctx domain arg_pre_typ then
             ComputationType (
-                MaxEffect (top_subst arg body_eff, MaxEffect (func_eff, arg_eff)), 
+                MaxEffect (top_subst arg body_eff, MaxEffect (func_eff, arg_eff)),
                 top_subst arg body_pre_typ
             )
         else failwith "domain type and arg type are not convertible"
       )
       | Some Proposition -> (
-        if conv ctx domain arg_typ then 
+        if conv ctx domain arg_typ then
             ComputationType (
-                MaxEffect (top_subst arg body_eff, func_eff), 
+                MaxEffect (top_subst arg body_eff, func_eff),
                 top_subst arg body_pre_typ
             )
         else failwith "domain type and arg type are not convertible"
       )
       | _ -> failwith "arg has an illegal kind"
     )
-    | Proposition | Predicate | TypeBuilder 
+    | Proposition | Predicate | TypeBuilder
     | Kind 0 | Kind 1 | Kind 2 -> (
       let (s, domain, range) = reduce_to_product_type ctx func_typ in
       let _ = tc_function_kind ctx s domain range in
       match arg_typ |> tc ctx |> find_nf ctx with
-      | Some Type -> ( 
+      | Some Type -> (
         let (arg_eff, arg_pre_typ) = reduce_to_computation_type ctx arg_typ in
         if conv ctx domain arg_pre_typ && conv ctx arg_eff Total then top_subst arg range
         else failwith "domain type and arg type are not convertible or the arguemnt is not toal"
@@ -531,12 +531,12 @@ let rec tc ctx t =
     wf ctx;
     let (ret_typ, args) = (
       let f = chosen |> List.nth recs |> List.nth ctx.lib |> snd in
-      (f.ret_type, firstn f.args (List.length recs)) 
+      (f.ret_type, firstn f.args (List.length recs))
     ) in
     let (eff, ret_typ) = reduce_to_computation_type ctx ret_typ in
     ComputationType (Total, build_product args (ComputationType (MaxEffect (Divergent, eff), ret_typ)))
   )
-  | Product (s, domain, range) -> tc_function_kind ctx s domain range 
+  | Product (s, domain, range) -> tc_function_kind ctx s domain range
   | Sequence (head, tail) -> (
     let t' = tc ctx head
     and t = tc ctx tail in
@@ -574,7 +574,7 @@ let rec tc ctx t =
     and (l_prop, r_prop) = proof |> tc ctx |> reduce_to_or_type ctx in
     if mem_var 0 on_left_range || mem_var 0 on_right_range then failwith "or_elim's result can't depend on input";
     let (on_left_range, on_right_range) = (lower1 on_left_range, lower1 on_right_range) in
-    if 
+    if
       conv ctx (tc ctx l_prop) Proposition && conv ctx (tc ctx r_prop) Proposition &&
       conv ctx on_left_domain l_prop && conv ctx on_right_domain r_prop &&
       conv ctx on_left_range on_right_range
@@ -595,7 +595,7 @@ let rec tc ctx t =
     if conv ctx (tc ctx t) PreType then (
       let _ = reduce_to_product_type ctx t in
       PreType
-    ) 
+    )
     else failwith "Illegal kind"
   )
   | AndEliminationL (proj, proof) -> (
@@ -604,7 +604,7 @@ let rec tc ctx t =
     if mem_var 0 range then failwith "range can't depend on input"
     else (
       let range = lower1 range in
-      if conv ctx (tc ctx range) Proposition && conv ctx domain l_prop then range      
+      if conv ctx (tc ctx range) Proposition && conv ctx domain l_prop then range
       else failwith "Proofs can only be eliminated to produce proofs or the domain mismatches the left prop"
     )
   )
@@ -614,7 +614,7 @@ let rec tc ctx t =
     if mem_var 0 range then failwith "range can't depend on input"
     else (
       let range = lower1 range in
-      if conv ctx (tc ctx range) Proposition && conv ctx domain r_prop then range      
+      if conv ctx (tc ctx range) Proposition && conv ctx domain r_prop then range
       else failwith "Proofs can only be eliminated to produce proofs or the domain mismatches the right prop"
     )
   )
@@ -649,7 +649,7 @@ let rec tc ctx t =
   | Falsity -> wf ctx; Proposition
   | EqElim (pred, proof, eq_proof) -> (
     let (l, r, typ) = eq_proof |> tc ctx |> reduce_to_eq_type ctx
-    and (_, domain, range) = pred |> tc ctx |> reduce_to_product_type ctx 
+    and (_, domain, range) = pred |> tc ctx |> reduce_to_product_type ctx
     and proof_typ = proof |> tc ctx in
     if
       conv ctx typ domain &&
@@ -685,7 +685,7 @@ let rec tc ctx t =
         if
           conv ctx (tc ctx on_true) (App (choice, True)) &&
           conv ctx (tc ctx on_false) (App (choice, False))
-        then (      
+        then (
           if mem_var 0 range then failwith "range can't depend on input"
           else (
             let range = lower1 range in
@@ -707,13 +707,13 @@ let rec tc ctx t =
           )
           else if conv ctx (tc ctx on_true_typ) Type then (
              let (on_true_eff, on_true_pre_typ) = reduce_to_computation_type ctx on_true_typ in
-             ComputationType (MaxEffect (cond_eff, on_true_eff), on_true_pre_typ) 
+             ComputationType (MaxEffect (cond_eff, on_true_eff), on_true_pre_typ)
           )
           else failwith "range can only be Prop, Type or a Type"
         ) else failwith "BoolRecIndep constraints not satisfied"
   )
 and tc_function_kind ctx s domain range =
-  let range_typ = tc (add_var ctx (s, domain)) range |> find_nf ctx |> Option.get 
+  let range_typ = tc (add_var ctx (s, domain)) range |> find_nf ctx |> Option.get
   and domain = domain |> find_nf ctx |> Option.get in
   match (domain, range_typ) with
   (* User functions *)

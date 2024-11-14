@@ -43,7 +43,7 @@ let parse_error s = Printf.printf "%s\n" s
 %right PROP_IMPLICATION FORALL
 %left PROPOR
 %left PROPAND
-%nonassoc PROPEQ             
+%nonassoc PROPEQ
 %nonassoc LONG_EQ
 %nonassoc LANGLE RANGLE LANGLE_EQ RANGLE_EQ
 %left PLUS MINUS
@@ -52,7 +52,7 @@ let parse_error s = Printf.printf "%s\n" s
 %nonassoc CALL
 %left COMMENT
 
-%start rust_file expression ir_term toplevel_command 
+%start rust_file expression ir_term toplevel_command
 %type <RustTerm.item list> rust_file
 %type <RustTerm.expr> expression
 %type <IrTerm.term> ir_term
@@ -62,7 +62,7 @@ rust_file:
 | COMMENT rust_file { (RustTerm.Comment $1) :: $2 }
 | fn_def rust_file { $1 :: $2 }
 | EOF { [] }
-; 
+;
 fn_def:
 | FN IDENT LPARAN fn_args RPARAN block { RustTerm.FnDef { name = $2; args = $4; ret_type = Unit; body = $6 } }
 | FN IDENT LPARAN fn_args RPARAN ARROW typ block { RustTerm.FnDef { name = $2; args = $4; ret_type = $7; body = $8 } }
@@ -87,7 +87,7 @@ maybe_typs:
 typs:
 | typ COMMA typs { $1 :: $3 }
 | typ { $1 :: [] }
-;     
+;
 statement:
 | LET IDENT EQ expression { RustTerm.Let ($2, $4) }
 | expression { Expr $1 }
@@ -98,7 +98,7 @@ statements:
 maybe_statements:
 | { [] }
 | statements { $1 }
-block:                                 
+block:
 | LBRACE maybe_statements RBRACE { $2 }
 atom_expression:
 | LPARAN RPARAN { RustTerm.Nil }
@@ -181,7 +181,7 @@ const_ir_term:
 | FN_PTR { IrTerm.FunctionPointer $1 }
 | PROPOSITION { IrTerm.Proposition }
 | TYPE { IrTerm.Type }
-| PRE_TYPE { IrTerm.PreType } 
+| PRE_TYPE { IrTerm.PreType }
 | KIND LSQBR INT RSQBR { IrTerm.Kind (int_of_string $3) }
 | COMPUTATION_KIND { IrTerm.ComputationKind }
 | PREDICATE { IrTerm.Predicate }
@@ -238,7 +238,7 @@ abs_ir_term:
 | SLASH IDENT COLLON ir_term DOT abs_ir_term { IrTerm.Abs ($2, $4, $6) }
 ir_term:
 | abs_ir_term { $1 }
-| abs_ir_term SEMICOLLON ir_term { IrTerm.Sequence ($1, $3) } 
+| abs_ir_term SEMICOLLON ir_term { IrTerm.Sequence ($1, $3) }
 
 def_arg:
 | LPARAN IDENT COLLON ir_term RPARAN { ($2, $4) }
@@ -250,7 +250,7 @@ toplevel_precommand:
 | RESET { TopCmd.Reset }
 | AXIOM IDENT COLLON ir_term { TopCmd.Axiom ($2, $4) }
 | TC_IR_TERM ir_term { TopCmd.TcIrTerm $2 }
-| IR_DEFINITION IDENT def_args EQ ir_term { TopCmd.IrDefinition($2, $3, $5) } 
+| IR_DEFINITION IDENT def_args EQ ir_term { TopCmd.IrDefinition($2, $3, $5) }
 | IR_PRINT_DEFINITION IDENT { TopCmd.IrPrintDef $2 }
 | IR_IS_CONV atom_ir_term atom_ir_term { TopCmd.IrIsConv ($2, $3) }
 | IR_SIMPL ir_term { TopCmd.IrSimpl $2 }

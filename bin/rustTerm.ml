@@ -3,7 +3,7 @@ type expr =
 | Nil
 | Variable of string
 | NumConst of int
-| Call of expr * (expr list) 
+| Call of expr * (expr list)
 | Add of expr * expr
 | Sub of expr * expr
 | Multiply of expr * expr
@@ -20,7 +20,7 @@ type expr =
 and statement =
 | Let of string * expr
 | Expr of expr
-and block = statement list 
+and block = statement list
 
 type typ =
 | Unit
@@ -37,7 +37,7 @@ type fn_def =
   body : block;
 }
 
-type item =      
+type item =
 | Comment of string
 | FnDef of fn_def
 

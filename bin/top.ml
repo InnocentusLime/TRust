@@ -1,24 +1,35 @@
-let cmds_from_chan ch = 
-  let gen () = 
+let cmds_from_lexbuf l_c =
+  let rec gen () =
+    try
+      let lexbuf = l_c () in
+      Some (Ast.toplevel_command Lex.lex lexbuf)
+    with
+    | Lex.Eof -> None
+    | Parsing.Parse_error -> (
+      Ui.info "Syntax error\n";
+      gen ()
+    )
+  in
+  Seq.of_dispenser gen
+
+let cmds_from_chan ch =
+  let gen () =
     try
       let lexbuf = Lexing.from_channel ch in
       Some (Ast.toplevel_command Lex.lex lexbuf)
-    with 
+    with
     | Lex.Eof -> None
     | Parsing.Parse_error -> (Printf.printf "Syntax error\n"; None)
-  in 
+  in
   Seq.of_dispenser gen
 
-let cmds_from_stdin = 
-  let gen () = 
+let cmds_from_stdin =
+  let l_c () =
     Ui.info "> ";
     Out_channel.flush stdout;
-    try
-      let lexbuf = Lexing.from_channel stdin in
-      Some (Ast.toplevel_command Lex.lex lexbuf)
-    with Lex.Eof -> None
-  in 
-  Seq.of_dispenser gen
+    Lexing.from_channel stdin
+  in
+  cmds_from_lexbuf l_c
 
 let rec compile_args ctx args =
   match args with
@@ -43,11 +54,11 @@ let rec process_command_throw ctx cmd =
   | TopCmd.TcIrTerm t -> (
     let t = Conv.IrUnname.compile_term (Conv.IrUnname.translate_ctx_from_typing_ctx ctx) t in
     let typ = IrDeBrujin.tc ctx t in
-    Ui.info "Success\nterm : %s\ntype : %s\n" 
-      (Conv.IrToString.string_of_de_brujin_ir_term (Conv.IrToString.translate_ctx_from_typing_ctx ctx) t) 
+    Ui.info "Success\nterm : %s\ntype : %s\n"
+      (Conv.IrToString.string_of_de_brujin_ir_term (Conv.IrToString.translate_ctx_from_typing_ctx ctx) t)
       (Conv.IrToString.string_of_de_brujin_ir_term (Conv.IrToString.translate_ctx_from_typing_ctx ctx) typ);
     ctx
-  )  
+  )
   | TopCmd.IrDefinition (name, args, body) -> (
     let (body_ctx, args) = compile_args ctx args in
     let body = Conv.IrUnname.compile_term (Conv.IrUnname.translate_ctx_from_typing_ctx body_ctx) body in
@@ -65,8 +76,8 @@ let rec process_command_throw ctx cmd =
     Ui.info "%s\n : %s\n"
       (Conv.IrToString.string_of_de_brujin_ir_term (Conv.IrToString.translate_ctx_from_typing_ctx ctx) func.IrDeBrujin.value)
       (
-        Conv.IrToString.string_of_de_brujin_ir_term 
-        (Conv.IrToString.translate_ctx_from_typing_ctx ctx) 
+        Conv.IrToString.string_of_de_brujin_ir_term
+        (Conv.IrToString.translate_ctx_from_typing_ctx ctx)
         (IrDeBrujin.build_product func.IrDeBrujin.args func.IrDeBrujin.ret_type)
       );
     ctx
@@ -86,8 +97,8 @@ let rec process_command_throw ctx cmd =
     let nf = (IrDeBrujin.find_nf ctx x) |> Option.get in
     Ui.info "Answer: %s\n"
       (
-        Conv.IrToString.string_of_de_brujin_ir_term 
-        (Conv.IrToString.translate_ctx_from_typing_ctx ctx) 
+        Conv.IrToString.string_of_de_brujin_ir_term
+        (Conv.IrToString.translate_ctx_from_typing_ctx ctx)
         nf
       );
     ctx
@@ -112,7 +123,7 @@ let rec process_command_throw ctx cmd =
     ctx
   )
 and process_command ctx cmd =
-  try process_command_throw ctx cmd 
+  try process_command_throw ctx cmd
   with
   | Failure s -> (Printf.printf "Failure:\n%s\n" s; ctx)
   | _ -> (Printf.printf "Err\n"; ctx)
@@ -121,6 +132,6 @@ and run ctx cmd_seq =
     let res = process_command ctx cmd in
     Out_channel.flush stdout; res
   in
-  cmd_seq |> 
+  cmd_seq |>
     Seq.take_while (fun x -> not (TopCmd.is_quit x)) |>
     Seq.fold_left prc ctx

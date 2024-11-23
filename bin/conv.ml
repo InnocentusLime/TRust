@@ -11,12 +11,12 @@ module SS = Set.Make(String)
 module RustUnname = struct
 
   (* Extracts all function definitions from items *)
-  let extract_functions_from_items items = 
+  let extract_functions_from_items items =
     items
     |>
-    List.filter 
-    (fun x -> 
-      match x with 
+    List.filter
+    (fun x ->
+      match x with
       | RustTerm.FnDef _ -> true
       | _ -> false
     )
@@ -28,10 +28,10 @@ module RustUnname = struct
       | _ -> failwith "Unreachable"
     )
 
-  (* 
-    We have our own type record to store functions here to indicate 
-    that this is a function in the process of being converted into the 
-    formal repr 
+  (*
+    We have our own type record to store functions here to indicate
+    that this is a function in the process of being converted into the
+    formal repr
   *)
   type func =
   {
@@ -42,28 +42,28 @@ module RustUnname = struct
 
   (* Builds a function lookup table form the list of function defs *)
   let convert_function_list_to_table funcs =
-    List.fold_left 
+    List.fold_left
     (
       fun acc f ->
       if Hashtbl.mem acc f.RustTerm.name then failwith "detected duplicate definitions"
       else (
-        (* 
-          Note that under the hood we treat functions which in Rust "take no arguments" 
+        (*
+          Note that under the hood we treat functions which in Rust "take no arguments"
           as functions which take a unit with "unused" name
         *)
-        if f.RustTerm.args = [] then 
-          Hashtbl.add acc f.RustTerm.name 
+        if f.RustTerm.args = [] then
+          Hashtbl.add acc f.RustTerm.name
           { args = [("_unused", RustTerm.Unit)]; ret_type = f.RustTerm.ret_type; body = f.RustTerm.body }
-        else 
-          Hashtbl.add acc f.RustTerm.name 
+        else
+          Hashtbl.add acc f.RustTerm.name
           { args = f.RustTerm.args; ret_type = f.RustTerm.ret_type; body = f.RustTerm.body }
-        ; 
+        ;
         acc
       )
     ) (Hashtbl.create (List.length funcs)) funcs
 
-  (* 
-   return the name of all variables which are used 
+  (*
+   return the name of all variables which are used
    in an expression
   *)
   let rec expr_whats_used e =
@@ -72,8 +72,8 @@ module RustUnname = struct
     | RustTerm.Variable x -> SS.singleton x
     | RustTerm.NumConst _ -> SS.empty
     | RustTerm.Call (x, y) -> SS.union (expr_whats_used x) (y |> List.map expr_whats_used |> List.fold_left SS.union SS.empty)
-    | RustTerm.Add (x, y) | RustTerm.Sub (x, y) | RustTerm.Multiply (x, y) 
-    | RustTerm.Divide (x, y) | RustTerm.Less (x, y) | RustTerm.Greater (x, y) | RustTerm.LessEqual (x, y) 
+    | RustTerm.Add (x, y) | RustTerm.Sub (x, y) | RustTerm.Multiply (x, y)
+    | RustTerm.Divide (x, y) | RustTerm.Less (x, y) | RustTerm.Greater (x, y) | RustTerm.LessEqual (x, y)
     | RustTerm.GreaterEqual (x, y) | RustTerm.Equal (x, y) -> SS.union (expr_whats_used x) (expr_whats_used y)
     | RustTerm.Negotiate x -> expr_whats_used x
     | RustTerm.IfThenElse (x, y, z) -> SS.union (SS.union (expr_whats_used x) (block_whats_used y)) (block_whats_used z)
@@ -81,14 +81,14 @@ module RustUnname = struct
     | RustTerm.Block x -> block_whats_used x
   and block_whats_used b =
     b |>
-    List.fold_left 
+    List.fold_left
   (
     fun (gathered, bound_names) x ->
     match x with
     | RustTerm.Let (name, e) -> (SS.union gathered (expr_whats_used e), SS.add name bound_names)
     | RustTerm.Expr e -> (SS.union gathered (expr_whats_used e), bound_names)
   )
-  (SS.empty, SS.empty) |> 
+  (SS.empty, SS.empty) |>
   fun (x, y) -> SS.diff x y
 
   (*
@@ -101,7 +101,7 @@ module RustUnname = struct
     create the reference hierarchy graph
   *)
   let reference_hierarchy file =
-    file |> 
+    file |>
     extract_functions_from_items |>
     List.map (
       fun f ->
@@ -119,18 +119,18 @@ module RustUnname = struct
   let tarjan input =
     let inp_length = Hashtbl.length input in
     let v_index = Hashtbl.create inp_length
-    and v_lowlink = Hashtbl.create inp_length 
+    and v_lowlink = Hashtbl.create inp_length
     and v_on_stack = Hashtbl.create inp_length
     and stack = Stack.create ()
     and sccs = ref []
     and index = ref 0 in
-    let rec strong_connect v = 
+    let rec strong_connect v =
       Hashtbl.replace v_index v !index;
       Hashtbl.replace v_lowlink v !index;
       index := !index + 1;
       Stack.push v stack;
       Hashtbl.replace v_on_stack v ();
-      List.iter 
+      List.iter
       (
         fun w ->
         if not (Hashtbl.mem v_index w) then (
@@ -160,9 +160,9 @@ module RustUnname = struct
     ) input;
     List.rev !sccs
 
-  (* 
-    This context assits us in tracking how variables will be laid 
-    on stack and how functions will be laid out in memory 
+  (*
+    This context assits us in tracking how variables will be laid
+    on stack and how functions will be laid out in memory
   *)
   type translate_ctx =
   {
@@ -172,7 +172,7 @@ module RustUnname = struct
     library : int SM.t;
     next_free_var_id : int;
     vars : int SM.t;
-  }    
+  }
 
   let add_variable ctx name =
     {
@@ -183,7 +183,7 @@ module RustUnname = struct
       next_free_var_id = ctx.next_free_var_id;
       vars = ctx.vars;
     }
- 
+
   let add_func_to_lib ctx name =
     if SM.mem name ctx.library then failwith "detected a duplicate";
     {
@@ -205,7 +205,7 @@ module RustUnname = struct
       vars = SM.add name ctx.next_free_var_id ctx.vars;
     }
 
-  let empty_ctx = 
+  let empty_ctx =
     {
       next_free_address = 0;
       adresses = SM.empty;
@@ -215,7 +215,7 @@ module RustUnname = struct
       vars = SM.empty;
     }
 
-  let ctx_from_formal (ctx : RustDeBrujin.typing_ctx) : translate_ctx = 
+  let ctx_from_formal (ctx : RustDeBrujin.typing_ctx) : translate_ctx =
     empty_ctx |>
     (
       fun conv_ctx ->
@@ -243,7 +243,7 @@ module RustUnname = struct
       else failwith (Printf.sprintf "Unbound name %s" n)
     )
     | RustTerm.NumConst c -> RustDeBrujin.Const (RustDeBrujin.NumConst c)
-    | RustTerm.Call (callee, args) -> 
+    | RustTerm.Call (callee, args) ->
       (*
         Calls which in Rust give "nothing" to the functions are treated
         as calls which give function a "unit"
@@ -261,9 +261,9 @@ module RustUnname = struct
     | RustTerm.Equal (l, r) -> RustDeBrujin.Equal (compile_expr ctx l, compile_expr ctx r)
     | RustTerm.Negotiate x -> RustDeBrujin.Negotiate (compile_expr ctx x)
     | RustTerm.IfThenElse (cond, on_true, on_false) -> RustDeBrujin.IfThenElse (compile_expr ctx cond, compile_block ctx on_true, compile_block ctx on_false)
-    | RustTerm.IfThen (cond, on_true) -> 
+    | RustTerm.IfThen (cond, on_true) ->
       RustDeBrujin.IfThenElse (
-        compile_expr ctx cond, compile_block ctx on_true, 
+        compile_expr ctx cond, compile_block ctx on_true,
         ([RustDeBrujin.Expr (RustDeBrujin.Const RustDeBrujin.Nil)], 0)
       )
     | RustTerm.Block b -> (
@@ -276,9 +276,9 @@ module RustUnname = struct
     (
       fun (ctx, b) x ->
       match x with
-      | RustTerm.Let (name, e) -> (add_variable ctx name, RustDeBrujin.Let (name, compile_expr ctx e) :: b) 
+      | RustTerm.Let (name, e) -> (add_variable ctx name, RustDeBrujin.Let (name, compile_expr ctx e) :: b)
       | RustTerm.Expr e -> (ctx, RustDeBrujin.Expr (compile_expr ctx e) :: b)
-    ) (ctx, []) b |> 
+    ) (ctx, []) b |>
     snd |> fun l -> (List.rev l, 0) (* The statements end up being in reverse, so we need to reverse the list *)
 
   (* Takes a group of functions and compiles it into a set of block from `formalism.ml` *)
@@ -296,7 +296,7 @@ module RustUnname = struct
     List.map snd |>
     List.combine new_ctxs |>
     List.map (
-      fun (ctx, f) -> 
+      fun (ctx, f) ->
       let (b, n) = compile_block ctx f.body in
       (b, n)
     )
@@ -319,8 +319,8 @@ module RustUnname = struct
     (* Now fetch the indices of the "hidden" definitions in the lib *)
     let hidden_formal_bodies_indices = List.map (fun x -> function_address new_ctx ("body#" ^ x)) group in
     (* This function builds the body of the "revealed" definition *)
-    (* 
-     As you can see, it just groups all "hidden" definitions into a `Rec`, picks `index`'th body and calls it, so it's 
+    (*
+     As you can see, it just groups all "hidden" definitions into a `Rec`, picks `index`'th body and calls it, so it's
      essentially just a wrapper
     *)
     let build_revealed_formal_body f index =
@@ -342,9 +342,9 @@ module RustUnname = struct
     (new_ctx, acc @ formal_bodies_hidden @ formal_bodies_revealed)
 
   (* This function is a special case when the function doesn't use recursion *)
-  (* 
-    Unlike the previous functions, no `body#[name]` is created and the result of 
-    conversion is simpy shoved into the `name`  
+  (*
+    Unlike the previous functions, no `body#[name]` is created and the result of
+    conversion is simpy shoved into the `name`
   *)
   let compile_non_recursive_singleton func_info_table group ctx acc =
     let compiler_input = List.map (fun x -> (x, Hashtbl.find func_info_table x)) group in
@@ -373,13 +373,13 @@ module RustUnname = struct
   (* Builds a lookup table to quickly check if a function is recursive *)
   let build_is_rec_table ref_hierarchy group_lookup =
     let output = Hashtbl.create (Hashtbl.length ref_hierarchy) in
-    Hashtbl.iter 
+    Hashtbl.iter
     (
-      fun k v -> 
+      fun k v ->
       Hashtbl.replace output k
-      ( 
+      (
         not (
-          not (List.mem k v) && 
+          not (List.mem k v) &&
           List.length (Hashtbl.find group_lookup k) = 1
         )
       ) (* If the function doesn't call itself and its group size is 1, it's not recursive *)
@@ -400,13 +400,13 @@ module RustUnname = struct
   *)
   let build_args_for_body who func_info_table group_lookup =
     let f = Hashtbl.find func_info_table who
-    and mutuals = 
-      Hashtbl.find group_lookup who |> 
+    and mutuals =
+      Hashtbl.find group_lookup who |>
       List.map (
-        fun x -> 
+        fun x ->
         let f = Hashtbl.find func_info_table x in
         (x, RustDeBrujin.RecGroup (f.args |> translate_args |> List.map snd, compile_type f.ret_type))
-      ) 
+      )
     in
     (mutuals @ (translate_args f.args), compile_type f.ret_type)
 
@@ -421,12 +421,12 @@ module RustUnname = struct
     let ref_hierarchy = reference_hierarchy file in
     let groups = tarjan ref_hierarchy in
     (* A lookup table to get the group that a function belongs to *)
-    let group_lookup = 
-      List.fold_left 
+    let group_lookup =
+      List.fold_left
       (
         fun map group ->
         List.iter (fun x -> Hashtbl.replace map x group) group;
-        map 
+        map
       ) (Hashtbl.create (groups |> List.flatten |> List.length)) groups
     in
     (* A table to quickly lookup if function is recursive *)
@@ -435,20 +435,20 @@ module RustUnname = struct
     (* Final steps: constructing RustDeBrujin.func *)
     List.map
     (
-      fun (name, body) -> 
+      fun (name, body) ->
       (*
         Functions with "body#" at the start of their name need special treatment.
         See `build_args_for_body`
       *)
       if Str.string_match r name 0 then (
         let who = Str.matched_group 1 name in
-        let (args, ret_type) = build_args_for_body who table group_lookup in 
+        let (args, ret_type) = build_args_for_body who table group_lookup in
         {
           RustDeBrujin.name = name;
           RustDeBrujin.args = args;
           RustDeBrujin.ret_type = ret_type;
           RustDeBrujin.body = body;
-        } 
+        }
       )
       (* Otherwise out work is pretty simple *)
       else (
@@ -482,14 +482,14 @@ module IrUnname = struct
     lib : int SM.t;
     next_free_lib_id : int;
     vars : int SM.t;
-  } 
+  }
 
   let translate_ctx_from_typing_ctx (ctx : IrDeBrujin.typing_ctx) : translate_ctx =
     {
       lib = ctx.lib |> List.mapi (fun i (x, _) -> (x, i)) |> List.fold_left (fun acc (k, v) -> SM.add k v acc) SM.empty;
       next_free_lib_id = List.length ctx.lib;
       vars = ctx.vars |> List.mapi (fun i (x, _) -> (x, i)) |> List.fold_left (fun acc (k, v) -> SM.add k v acc) SM.empty;
-    } 
+    }
 
   let add_var ctx x =
     {
@@ -512,8 +512,8 @@ module IrUnname = struct
   let rec compile_term (ctx : translate_ctx) (t : IrTerm.term) : IrDeBrujin.term =
     match t with
     | IrTerm.Var x -> (
-      if SM.mem x ctx.vars then IrDeBrujin.Var (SM.find x ctx.vars) 
-      else failwith "unbound name" 
+      if SM.mem x ctx.vars then IrDeBrujin.Var (SM.find x ctx.vars)
+      else failwith "unbound name"
     )
     | IrTerm.Abs (s, domain, body) -> IrDeBrujin.Abs (s, compile_term ctx domain, compile_term (add_var ctx s) body)
     | IrTerm.App (l, r) -> IrDeBrujin.App (compile_term ctx l, compile_term ctx r)
@@ -540,7 +540,7 @@ module IrUnname = struct
     | IrTerm.OrIntroductionL (l_proof, r_prop) -> IrDeBrujin.OrIntroductionL (compile_term ctx l_proof, compile_term ctx r_prop)
     | IrTerm.OrIntroductionR (r_proof, l_prop) -> IrDeBrujin.OrIntroductionR (compile_term ctx r_proof, compile_term ctx l_prop)
     | IrTerm.OrElimination (on_left, on_right, proof) -> IrDeBrujin.OrElimination (compile_term ctx on_left, compile_term ctx on_right, compile_term ctx proof)
-    | IrTerm.AndEliminationL (proj, proof) -> IrDeBrujin.AndEliminationL (compile_term ctx proj, compile_term ctx proof) 
+    | IrTerm.AndEliminationL (proj, proof) -> IrDeBrujin.AndEliminationL (compile_term ctx proj, compile_term ctx proof)
     | IrTerm.AndEliminationR (proj, proof) -> IrDeBrujin.AndEliminationR (compile_term ctx proj, compile_term ctx proof)
     | IrTerm.And (l, r) -> IrDeBrujin.And (compile_term ctx l, compile_term ctx r)
     | IrTerm.Or (l, r) -> IrDeBrujin.Or (compile_term ctx l, compile_term ctx r)
@@ -566,17 +566,17 @@ module IrUnname = struct
 end
 
 module IrName = struct
-  type translate_ctx = 
+  type translate_ctx =
   {
     lib : string list;
-    vars : string list;  
+    vars : string list;
   }
 
   let translate_ctx_from_typing_ctx (ctx : IrDeBrujin.typing_ctx) : translate_ctx =
     {
       lib = ctx.lib |> List.map (fun (x, _) -> x);
       vars = ctx.vars |> List.map (fun (x, _) -> x);
-    } 
+    }
 
   let add_var ctx x =
     {
@@ -596,7 +596,7 @@ module IrName = struct
     match t with
     | IrDeBrujin.Var x -> (
       if List.length ctx.vars <= x then failwith "Variable ID out of range"
-      else IrTerm.Var (List.nth ctx.vars x) 
+      else IrTerm.Var (List.nth ctx.vars x)
     )
     | IrDeBrujin.Abs (s, domain, body) -> IrTerm.Abs (s, compile_term ctx domain, compile_term (add_var ctx s) body)
     | IrDeBrujin.App (l, r) -> IrTerm.App (compile_term ctx l, compile_term ctx r)
@@ -623,7 +623,7 @@ module IrName = struct
     | IrDeBrujin.OrIntroductionL (l_proof, r_prop) -> IrTerm.OrIntroductionL (compile_term ctx l_proof, compile_term ctx r_prop)
     | IrDeBrujin.OrIntroductionR (r_proof, l_prop) -> IrTerm.OrIntroductionR (compile_term ctx r_proof, compile_term ctx l_prop)
     | IrDeBrujin.OrElimination (on_left, on_right, proof) -> IrTerm.OrElimination (compile_term ctx on_left, compile_term ctx on_right, compile_term ctx proof)
-    | IrDeBrujin.AndEliminationL (proj, proof) -> IrTerm.AndEliminationL (compile_term ctx proj, compile_term ctx proof) 
+    | IrDeBrujin.AndEliminationL (proj, proof) -> IrTerm.AndEliminationL (compile_term ctx proj, compile_term ctx proof)
     | IrDeBrujin.AndEliminationR (proj, proof) -> IrTerm.AndEliminationR (compile_term ctx proj, compile_term ctx proof)
     | IrDeBrujin.And (l, r) -> IrTerm.And (compile_term ctx l, compile_term ctx r)
     | IrDeBrujin.Or (l, r) -> IrTerm.Or (compile_term ctx l, compile_term ctx r)
@@ -665,7 +665,7 @@ module IrToString = struct
     | IrTerm.IntegerType -> "int"
     | IrTerm.IntegerConst x -> string_of_int x
     | IrTerm.FunctionPointer x -> decorate_ptr x
-    | IrTerm.Proposition -> "Prop" 
+    | IrTerm.Proposition -> "Prop"
     | IrTerm.Type -> "Type"
     | IrTerm.PreType -> "PreType"
     | IrTerm.ComputationKind -> "CompKind"
@@ -676,7 +676,7 @@ module IrToString = struct
     | IrTerm.Add (l, r) -> Printf.sprintf "(%s + %s)" (string_of_named_ir_term l) (string_of_named_ir_term r)
     | IrTerm.Subtract (l, r) -> Printf.sprintf "(%s - %s)" (string_of_named_ir_term l) (string_of_named_ir_term r)
     | IrTerm.Multiply (l, r) -> Printf.sprintf "(%s * %s)" (string_of_named_ir_term l) (string_of_named_ir_term r)
-    | IrTerm.Recursion (bodies, chosen) -> Printf.sprintf "rec[%s][%d]" (String.concat ", " (bodies |> List.map decorate_ptr)) chosen 
+    | IrTerm.Recursion (bodies, chosen) -> Printf.sprintf "rec[%s][%d]" (String.concat ", " (bodies |> List.map decorate_ptr)) chosen
     | IrTerm.Product (s, domain, range) -> (
       if s = "_" then Printf.sprintf "(%s -> %s)" (string_of_named_ir_term domain) (string_of_named_ir_term range)
       else Printf.sprintf "(forall %s : %s.%s)" s (string_of_named_ir_term domain) (string_of_named_ir_term range)

@@ -1,0 +1,4 @@
+tc_ir_term 2.
+tc_ir_term int.
+help.
+axiom x : int.

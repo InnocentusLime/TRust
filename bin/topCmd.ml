@@ -9,3 +9,8 @@ type command =
 | IrSimpl of IrTerm.term
 | IrLoadModule of string
 | Help
+
+let is_quit cmd =
+   match cmd with
+   | Quit -> true
+   | _ -> false

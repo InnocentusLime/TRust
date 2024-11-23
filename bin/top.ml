@@ -1,3 +1,30 @@
+let cmds_from_lexbuf l_c =
+  let rec gen () =
+    try
+      let lexbuf = l_c () in
+      Some (Ast.toplevel_command Lex.lex lexbuf)
+    with
+    | Lex.Eof -> None
+    | Parsing.Parse_error -> (
+      Ui.info "Syntax error\n";
+      gen ()
+    )
+  in
+  Seq.of_dispenser gen
+
+let cmds_from_chan ch =
+  let buff = Lexing.from_channel ch in
+  let l_c () = buff in
+  cmds_from_lexbuf l_c
+
+let cmds_from_stdin =
+  let l_c () =
+    Ui.info "> ";
+    Out_channel.flush stdout;
+    Lexing.from_channel stdin
+  in
+  cmds_from_lexbuf l_c
+
 let rec compile_args ctx args =
   match args with
   | [] -> (ctx, [])
@@ -8,178 +35,100 @@ let rec compile_args ctx args =
     (ctx', (name, arg) :: args')
   )
 
-(* The top-level for the TRust *)
-let read_command_terminal () =
-  let cmd = ref TopCmd.Quit
-  and success = ref false in
-  while not !success do
-    print_string "> ";
-    let s = read_line () in
-    let lex = Lexing.from_string s in
-    try (
-      let result = Ast.toplevel_command Lex.lex lex in
-      success := true; cmd := result
-    ) 
-    with 
-    | Parsing.Parse_error -> (
-      let toc = Lexing.lexeme lex in
-      Printf.printf "Failed to parse command\nI was having issues with token \"%s\".\n" toc
-    )
-  done;
-  !cmd
-
-let read_subcommand_terminal () = print_string ">> "; read_line ()
-
-let read_arg_terminal () = print_string ">>> "; read_line ()
-
-let rec execute_command ctx cmd =
-    match cmd with
-    | TopCmd.Quit -> ()
-    | TopCmd.Reset -> (Printf.printf "Context reset.\n"; ctx := IrDeBrujin.empty_ctx)
-    | TopCmd.Axiom (s, t) -> (
-      try (
-        let t = Conv.IrUnname.compile_term (Conv.IrUnname.translate_ctx_from_typing_ctx !ctx) t in
-        let _ = IrDeBrujin.tc !ctx t in
-        ctx := IrDeBrujin.add_var !ctx (s, t);
-        Printf.printf "Axiom added.\n"
-      ) with 
-      | Parsing.Parse_error -> Printf.printf "Syntax error\n"
-      | Failure s -> Printf.printf "Failure:\n%s\n" s
-      | _ -> Printf.printf "Err\n"
-    )
-    | TopCmd.TcIrTerm t -> (
-      try (
-        let t = Conv.IrUnname.compile_term (Conv.IrUnname.translate_ctx_from_typing_ctx !ctx) t in
-        let typ = IrDeBrujin.tc !ctx t in
-        Printf.printf "Success\nterm : %s\ntype : %s\n" 
-        (Conv.IrToString.string_of_de_brujin_ir_term (Conv.IrToString.translate_ctx_from_typing_ctx !ctx) t) 
-        (Conv.IrToString.string_of_de_brujin_ir_term (Conv.IrToString.translate_ctx_from_typing_ctx !ctx) typ)
-      ) with
-      | Parsing.Parse_error -> Printf.printf "Syntax error\n"
-      | Failure s -> Printf.printf "Failure:\n%s\n" s
-      | _ -> Printf.printf "Err\n"
-    )
-    | TopCmd.IrDefinition (name, args, body) -> (
-      try (
-        let (body_ctx, args) = compile_args !ctx args in
-        let body = Conv.IrUnname.compile_term (Conv.IrUnname.translate_ctx_from_typing_ctx body_ctx) body in
-        let ret_type = IrDeBrujin.tc body_ctx body in
-        let func : IrDeBrujin.func = {
-          IrDeBrujin.args = args;
-          IrDeBrujin.ret_type = ret_type;
-          IrDeBrujin.value = List.fold_right (fun (name, domain) acc -> IrDeBrujin.Abs (name, domain, acc)) args body;
-        } in
-        ctx := IrDeBrujin.add_func !ctx (name, func);
-        Printf.printf "%s defined\n" name;
-      ) with
-      | Parsing.Parse_error -> Printf.printf "Syntax error\n"
-      | Failure s -> Printf.printf "Failure:\n%s\n" s
-      | _ -> Printf.printf "Err\n"
-    )
-    | TopCmd.IrPrintDef name -> (
-      try (
-        let func = (IrDeBrujin.dispatch_func !ctx name) in
-        Printf.printf "%s\n : %s\n"
-        (Conv.IrToString.string_of_de_brujin_ir_term (Conv.IrToString.translate_ctx_from_typing_ctx !ctx) func.IrDeBrujin.value)
-        (
-          Conv.IrToString.string_of_de_brujin_ir_term 
-          (Conv.IrToString.translate_ctx_from_typing_ctx !ctx) 
-          (IrDeBrujin.build_product func.IrDeBrujin.args func.IrDeBrujin.ret_type)
-        );
-      ) with
-      | Failure s -> Printf.printf "Failure:\n%s\n" s
-      | _ -> Printf.printf "Err\n" 
-    )
-    | TopCmd.IrIsConv (l, r) -> (
-      try (
-        let l = Conv.IrUnname.compile_term (Conv.IrUnname.translate_ctx_from_typing_ctx !ctx) l
-        and r = Conv.IrUnname.compile_term (Conv.IrUnname.translate_ctx_from_typing_ctx !ctx) r in
-        let l_typ = (IrDeBrujin.tc !ctx l)
-        and r_typ = (IrDeBrujin.tc !ctx r) in
-        if IrDeBrujin.conv !ctx l_typ r_typ then Printf.printf "Answer: %B\n" (IrDeBrujin.conv !ctx l r)
-        else Printf.printf "Can't check for conversion of terms of two different types.\n"
-      ) with
-      | Failure s -> Printf.printf "Failure:\n%s\n" s
-      | _ -> Printf.printf "Err\n" 
-    )
-    | TopCmd.IrSimpl x -> (
-      try (
-        let x = Conv.IrUnname.compile_term (Conv.IrUnname.translate_ctx_from_typing_ctx !ctx) x in
-        let _ = (IrDeBrujin.tc !ctx x) in
-        let nf = (IrDeBrujin.find_nf !ctx x) |> Option.get in
-        Printf.printf "Answer: %s\n"
-        (
-          Conv.IrToString.string_of_de_brujin_ir_term 
-          (Conv.IrToString.translate_ctx_from_typing_ctx !ctx) 
-          nf
-        );
-      ) with
-      | Failure s -> Printf.printf "Failure:\n%s\n" s
-      | _ -> Printf.printf "Err\n" 
-    )
-    | TopCmd.IrLoadModule path -> (
-      try (
-        ctx := execute_file !ctx path    
-      ) with 
-      | Failure s -> Printf.printf "Failure:\n%s\n" s
-      | _ -> Printf.printf "Err\n" 
-    )
-    | TopCmd.Help -> (
-        Printf.printf "%s"
-        (
-            "\
-            quit --- exit TRust toplevel\n\
-            reset --- reset the current global context, making it empty\n\
-            axiom [IDENT] : [TYPE] --- add a variable named [IDENT] of type [TYPE] to global context, essentially making an axiom\n\
-            tc_ir_term [TERM] --- typecheck [TERM] and print its type\n\
-            ir_def [IDENT] (arg1 : T1) ... (argn : Tn) = [TERM] --- declare a function with body equal to [TERM]\n\
-            ir_print_def [IDENT] --- print body of function [IDENT]\n\
-            ir_is_conv [TERM] [TERM] --- check if the two terms are convertible\n\
-            ir_simpl [TERM] --- compute normal form of a term (note: non-halting terms will make this command work infinitely)\n\
-            ir_load_mod [PATH_IN_QUOTES] --- load a TRust module, essentially exeucting all commands inside it\n\
-            help --- prints this message\n\
-            "
-        )
-    )
-and execute_file ctx path =
-  Printf.printf "Executing \"%s\" path...\n\n" path;
-  let old_ctx = ctx in
-  let ctx = ref ctx in
-  let chan = open_in_bin path in
-  let lexing = Lexing.from_channel chan in
-  let cmd = ref None in
-  try ( 
-    while (cmd := Ast.maybe_toplevel_command Lex.lex lexing; !cmd <> None && !cmd <> Some TopCmd.Quit) do
-      execute_command ctx (Option.get !cmd);
-      Printf.printf "\n";
-    done; 
-    Printf.printf "Done!\nReason: ";
+let rec process_command_throw ctx cmd =
+  match cmd with
+  | TopCmd.Quit -> ctx
+  | TopCmd.Reset -> (Ui.info "Context reset.\n"; IrDeBrujin.empty_ctx)
+  | TopCmd.Axiom (s, t) -> (
+    let t = Conv.IrUnname.compile_term (Conv.IrUnname.translate_ctx_from_typing_ctx ctx) t in
+    let _ = IrDeBrujin.tc ctx t in
+    Ui.info "Axiom added.\n";
+    IrDeBrujin.add_var ctx (s, t)
+  )
+  | TopCmd.TcIrTerm t -> (
+    let t = Conv.IrUnname.compile_term (Conv.IrUnname.translate_ctx_from_typing_ctx ctx) t in
+    let typ = IrDeBrujin.tc ctx t in
+    Ui.info "Success\nterm : %s\ntype : %s\n"
+      (Conv.IrToString.string_of_de_brujin_ir_term (Conv.IrToString.translate_ctx_from_typing_ctx ctx) t)
+      (Conv.IrToString.string_of_de_brujin_ir_term (Conv.IrToString.translate_ctx_from_typing_ctx ctx) typ);
+    ctx
+  )
+  | TopCmd.IrDefinition (name, args, body) -> (
+    let (body_ctx, args) = compile_args ctx args in
+    let body = Conv.IrUnname.compile_term (Conv.IrUnname.translate_ctx_from_typing_ctx body_ctx) body in
+    let ret_type = IrDeBrujin.tc body_ctx body in
+    let func : IrDeBrujin.func = {
+      IrDeBrujin.args = args;
+      IrDeBrujin.ret_type = ret_type;
+      IrDeBrujin.value = List.fold_right (fun (name, domain) acc -> IrDeBrujin.Abs (name, domain, acc)) args body;
+    } in
+    Ui.info "%s defined\n" name;
+    IrDeBrujin.add_func ctx (name, func)
+  )
+  | TopCmd.IrPrintDef name -> (
+    let func = (IrDeBrujin.dispatch_func ctx name) in
+    Ui.info "%s\n : %s\n"
+      (Conv.IrToString.string_of_de_brujin_ir_term (Conv.IrToString.translate_ctx_from_typing_ctx ctx) func.IrDeBrujin.value)
+      (
+        Conv.IrToString.string_of_de_brujin_ir_term
+        (Conv.IrToString.translate_ctx_from_typing_ctx ctx)
+        (IrDeBrujin.build_product func.IrDeBrujin.args func.IrDeBrujin.ret_type)
+      );
+    ctx
+  )
+  | TopCmd.IrIsConv (l, r) -> (
+    let l = Conv.IrUnname.compile_term (Conv.IrUnname.translate_ctx_from_typing_ctx ctx) l
+    and r = Conv.IrUnname.compile_term (Conv.IrUnname.translate_ctx_from_typing_ctx ctx) r in
+    let l_typ = (IrDeBrujin.tc ctx l)
+    and r_typ = (IrDeBrujin.tc ctx r) in
+    if IrDeBrujin.conv ctx l_typ r_typ then Ui.info "Answer: %B\n" (IrDeBrujin.conv ctx l r)
+    else Ui.info "Can't check for conversion of terms of two different types.\n";
+    ctx
+  )
+  | TopCmd.IrSimpl x -> (
+    let x = Conv.IrUnname.compile_term (Conv.IrUnname.translate_ctx_from_typing_ctx ctx) x in
+    let _ = (IrDeBrujin.tc ctx x) in
+    let nf = (IrDeBrujin.find_nf ctx x) |> Option.get in
+    Ui.info "Answer: %s\n"
+      (
+        Conv.IrToString.string_of_de_brujin_ir_term
+        (Conv.IrToString.translate_ctx_from_typing_ctx ctx)
+        nf
+      );
+    ctx
+  )
+  | TopCmd.IrLoadModule path -> (
+    let f = In_channel.open_bin path in
+    run ctx (cmds_from_chan f)
+  )
+  | TopCmd.Help -> (
+    Ui.info "%s"
     (
-      match !cmd with
-      | None -> Printf.printf "Reached end of file\n"
-      | Some TopCmd.Quit -> Printf.printf "Reached a `quit` command\n"
-      | Some _ -> failwith "Unreachable\n"
+      "\
+      quit --- exit TRust toplevel\n\
+      reset --- reset the current global context, making it empty\n\
+      axiom [IDENT] : [TYPE] --- add a variable named [IDENT] of type [TYPE] to global context, essentially making an axiom\n\
+      tc_ir_term [TERM] --- typecheck [TERM] and print its type\n\
+      ir_def [IDENT] (arg1 : T1) ... (argn : Tn) = [TERM] --- declare a function with body equal to [TERM]\n\
+      ir_print_def [IDENT] --- print body of function [IDENT]\n\
+      ir_is_conv [TERM] [TERM] --- check if the two terms are convertible\n\
+      ir_simpl [TERM] --- compute normal form of a term (note: non-halting terms will make this command work infinitely)\n\
+      ir_load_mod [PATH_IN_QUOTES] --- load a TRust module, essentially exeucting all commands inside it\n\
+      help --- prints this message\n\
+      "
     );
-    !ctx
+    ctx
   )
-  with 
-  | _ -> (
-    Printf.printf "Encountered an error when executing the file\n";
-    old_ctx
-  )
-
-let top_level_main command_reader ctx =
-  let ctx = ref ctx in
-  let cmd = ref TopCmd.Quit in
-  while (cmd := command_reader (); !cmd) <> TopCmd.Quit do
-    execute_command ctx !cmd
-  done;
-  !ctx
-
-let top_level_main_terminal ctx = top_level_main read_command_terminal ctx
-
-let top_level_main_file ctx path = top_level_main_terminal (execute_file ctx path)
-
-let make_empty_ctx () = IrDeBrujin.empty_ctx
-
-let allocate_ctx () = ref (make_empty_ctx ())
+and process_command ctx cmd =
+  try process_command_throw ctx cmd
+  with
+  | Failure s -> (Printf.printf "Failure:\n%s\n" s; ctx)
+  | _ -> (Printf.printf "Err\n"; ctx)
+and run ctx cmd_seq =
+  let prc ctx cmd =
+    let res = process_command ctx cmd in
+    Out_channel.flush stdout; res
+  in
+  cmd_seq |>
+    Seq.take_while (fun x -> not (TopCmd.is_quit x)) |>
+    Seq.fold_left prc ctx

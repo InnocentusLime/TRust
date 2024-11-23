@@ -68,7 +68,7 @@ type expr =
 | IfThenElse of expr * block * block
 | MoveOutOfRef of expr
 and stmt =
-| Expr of expr  
+| Expr of expr
 | Let of string * expr
 (* In Rust variables get popped when we leave the block. Each block keeps a number which indicates how many values to pop of stack *)
 and block = (stmt list * int)
@@ -82,21 +82,21 @@ let rec same_expr l r =
   | (And (xl, yl), And (xr, yr)) | (Or (xl, yl), Or (xr, yr)) | (Add (xl, yl), Add (xr, yr))
   | (Sub (xl, yl), Sub (xr, yr)) | (Divide (xl, yl), Divide (xr, yr)) | (Multiply (xl, yl), Multiply (xr, yr))
   | (Greater (xl, yl), Greater (xr, yr)) | (Less (xl, yl), Less (xr, yr)) | (LessEqual (xl, yl), LessEqual (xr, yr))
-  | (GreaterEqual (xl, yl), GreaterEqual (xr, yr)) | (Equal (xl, yl), Equal (xr, yr)) | (Write (xl, yl), Write (xr, yr)) 
+  | (GreaterEqual (xl, yl), GreaterEqual (xr, yr)) | (Equal (xl, yl), Equal (xr, yr)) | (Write (xl, yl), Write (xr, yr))
     -> same_expr xl xr && same_expr yl yr
-  | (IfThenElse (condl, on_truel, on_falsel), IfThenElse (condr, on_truer, on_falser)) -> 
+  | (IfThenElse (condl, on_truel, on_falsel), IfThenElse (condr, on_truer, on_falser)) ->
     same_expr condl condr && same_block on_truel on_truer && same_block on_falsel on_falser
   | (Not l, Not r) | (MoveOutOfRef l, MoveOutOfRef r) | (Negotiate l, Negotiate r) -> same_expr l r
   | (Call (calleel, argsl), Call (calleer, argsr)) -> (
     if List.length argsl = List.length argsr then same_expr calleel calleer && List.for_all2 same_expr argsl argsr
-    else false 
+    else false
   )
   | (Block l, Block r) -> same_block l r
   | _ -> false
 and same_stmt l r =
   match (l, r) with
   | (Expr l, Expr r) -> same_expr l r
-  | (Let (_, l), Let (_, r)) -> same_expr l r 
+  | (Let (_, l), Let (_, r)) -> same_expr l r
   | _ -> false
 and same_block (l, _) (r, _) =
   if List.length l = List.length r then List.for_all2 same_stmt l r
@@ -166,9 +166,9 @@ and string_of_stmt s =
   | Let (name, e) -> Printf.sprintf "PUSH[%s, %s]" name (string_of_expr e)
 and string_of_block (b, n) = b |> List.map string_of_stmt |> String.concat "; " |> Printf.sprintf "[%d]{%s}" n
 
-let string_of_func f = 
-  Printf.sprintf "def %s : %s -> %s := %s" 
-  f.name 
+let string_of_func f =
+  Printf.sprintf "def %s : %s -> %s := %s"
+  f.name
   (
     f.args |>
     List.map (fun (name, typ) -> Printf.sprintf "(%s:%s)" name (string_of_typ typ)) |>
@@ -177,8 +177,8 @@ let string_of_func f =
   (string_of_typ f.ret_type)
   (string_of_block f.body)
 
-type typing_ctx =  
-{       
+type typing_ctx =
+{
   stack : (string * typ) list;
   consts : (string * typ * const) list;
   lib : func list;
@@ -186,7 +186,7 @@ type typing_ctx =
   vars : (string * typ) list;
 }
 
-let string_of_typing_ctx ctx = 
+let string_of_typing_ctx ctx =
   Printf.sprintf "{\n[%s]\n[%s]\n[%s]\n[%s]\n[%s]\n}"
   (ctx.stack |> List.map (fun (s, t) -> Printf.sprintf "%s : %s" s (string_of_typ t)) |> String.concat ", ")
   (ctx.consts |> List.map (fun (s, t, c) -> Printf.sprintf "%s : %s := %s" s (string_of_typ t) (string_of_const c)) |> String.concat ", ")
@@ -194,7 +194,7 @@ let string_of_typing_ctx ctx =
   (ctx.mem |> List.map string_of_typ |> String.concat ", ")
   (ctx.vars |> List.map (fun (s, t) -> Printf.sprintf "%s : %s" s (string_of_typ t)) |> String.concat ", ")
 
-let empty_ctx = 
+let empty_ctx =
   {
     stack = [];
     consts = [];
@@ -221,7 +221,7 @@ let add_func_to_context_lib ctx v =
     vars = ctx.vars;
   }
 
-let push_variable_to_context_stack ctx v = 
+let push_variable_to_context_stack ctx v =
   {
     stack = ctx.stack @ [v];
     consts = ctx.consts;
@@ -235,7 +235,7 @@ let infer_type_known_mem_cell ctx v = ctx.mem |> fun l -> List.nth l v
 let infer_type_stack ctx v = ctx.stack |> (fun l -> List.nth l (List.length l - v - 1)) |> snd
 let infer_type_var ctx v = ctx.vars |> (fun l -> List.nth l v) |> snd
 
-(* 
+(*
  Looks up the body's signature and returns the following information
  1. the types of the mutually recursive bodies
  2. the type of the body which will be visible to other bodies
@@ -252,7 +252,7 @@ let fetch_body_info body_count body_type =
  in the same order. This method ensures that.
 *)
 let collect_body_types input =
-  let (bodies, func_data) = input |> List.split in  
+  let (bodies, func_data) = input |> List.split in
   if not (is_list_of_equal_items bodies) then failwith "recursor mismatch";
   (List.hd bodies, func_data)
 
@@ -268,17 +268,17 @@ let infer_type_const ctx c =
     if bodies = [] then failwith "Rec can't have zero bodies";
       let body_count = List.length bodies in
       let (body_typ_list, func_signatures) =
-        bodies |> 
+        bodies |>
         List.map (
-          fun x -> 
-            x |> infer_type_fn_ptr ctx |> 
+          fun x ->
+            x |> infer_type_fn_ptr ctx |>
             fetch_body_info body_count
-        ) |> 
+        ) |>
         collect_body_types
       in
       let answer = List.nth func_signatures i in
       if List.nth body_typ_list i <> answer then failwith "Recursor signature mismatch";
-      answer 
+      answer
   )
   | Var x -> infer_type_var ctx x
 
@@ -323,7 +323,7 @@ let rec infer_type_expr ctx e =
                 match target_type with
                 | RefType reffed_type when reffed_type = value_type -> Unit
                 | _ -> failwith "the value type doesn't match the type of reference"
-        ) 
+        )
         | MoveStackVar from -> infer_type_stack ctx from
         | Add (l, r) | Sub (l, r) | Multiply (l, r) | Divide (l, r) -> (
           if infer_type_expr ctx l = Int && infer_type_expr ctx r = Int then Int
@@ -361,7 +361,7 @@ and infer_type_block ctx (b, _) =
     infer_type_stmt ctx x
   ) (ctx, Unit) b |> snd
 
-(* 
+(*
   This function adds newly compiled input to the context. Type checking happens in
   the process.
 *)
@@ -372,7 +372,7 @@ let load_module ctx input =
     let body_ctx = List.fold_left push_variable_to_context_stack ctx f.args in
     let body_typ = infer_type_block body_ctx f.body in
     if body_typ = f.ret_type then (
-      Printf.printf "%s loaded\n" f.name; add_func_to_context_lib ctx f 
+      Printf.printf "%s loaded\n" f.name; add_func_to_context_lib ctx f
     ) else failwith "The body type mismatches the return type"
   ) ctx input
 
@@ -399,9 +399,9 @@ let string_of_master_ctx ctx =
   (ctx.vars |> List.map (fun (s, t) -> Printf.sprintf "%s : %s" s (string_of_typ t)) |> String.concat ", ")
 
 let same_master_ctx l r =
-  if 
-    List.length l.stack = List.length r.stack && 
-    List.length l.consts = List.length r.consts && 
+  if
+    List.length l.stack = List.length r.stack &&
+    List.length l.consts = List.length r.consts &&
     List.length l.lib = List.length r.lib &&
     List.length l.mem = List.length r.mem &&
     List.length l.vars = List.length r.vars
@@ -409,7 +409,7 @@ let same_master_ctx l r =
     List.for_all2 (fun (_, l_t, l_c) (_, r_t, r_c) -> l_t = r_t && same_const l_c r_c) l.stack r.stack &&
     List.for_all2 (fun (_, l_t, l_c) (_, r_t, r_c) -> l_t = r_t && same_const l_c r_c) l.consts r.consts &&
     List.for_all2 same_func l.lib r.lib &&
-    List.for_all2 (fun (l_c, l_t) (r_c, r_t) -> same_const l_c r_c && l_t = r_t) r.mem l.mem && 
+    List.for_all2 (fun (l_c, l_t) (r_c, r_t) -> same_const l_c r_c && l_t = r_t) r.mem l.mem &&
     List.for_all2 (fun (_, l_t) (_, r_t) -> l_t = r_t) l.vars r.vars
   ) else false
 
@@ -458,7 +458,7 @@ let master_ctx_from_vars_and_lib vars lib : master_ctx =
   vars = vars;
 }
 
-let downgrade_to_typing (ctx : master_ctx) : typing_ctx = 
+let downgrade_to_typing (ctx : master_ctx) : typing_ctx =
 {
   stack = List.map (fun (s, t, _) -> (s, t)) ctx.stack;
   consts = ctx.consts;
@@ -502,7 +502,7 @@ let is_const c =
 let unwrap_const c =
   match c with
   | Const c -> c
-  | _ -> failwith "unwrap error" 
+  | _ -> failwith "unwrap error"
 
 let bool_to_formal_bool x = Const (if x then BoolTrue else BoolFalse)
 
@@ -525,10 +525,10 @@ let change_cell_stack ctx i e =
     mem = ctx.mem;
     vars = ctx.vars;
   }
- 
+
 let build_call body signs arg_vals =
   Block (
-    List.fold_left 
+    List.fold_left
     (
       fun lets ((name, _), v) ->
       lets @ [Let (name, v)]
@@ -544,11 +544,11 @@ let rec red_check_expr n e =
     | Const _ | ConstRef _ -> true
     | And (l, r) | Or (l, r) | Equal (l, r) | Add (l, r) | Sub (l, r)
     | Multiply (l, r) | Divide (l, r) | Less (l, r) | Greater (l, r)
-    | LessEqual (l, r) | GreaterEqual (l, r) | Write (l, r) 
+    | LessEqual (l, r) | GreaterEqual (l, r) | Write (l, r)
       -> red_check_expr n l && red_check_expr n r
     | Not x -> red_check_expr n x
     | Call (callee, args) -> red_check_expr n callee && List.for_all (red_check_expr n) args
-    | Block (b, m) -> 
+    | Block (b, m) ->
       if n = 0 then (
         if m = 0 then red_check_block 0 b
         else false
@@ -562,7 +562,7 @@ and red_check_block n b =
     | h :: t -> (
       match h with
       | Expr e -> red_check_expr n e && red_check_block n t
-      | Let (_, e) -> red_check_expr n e && red_check_block 0 t 
+      | Let (_, e) -> red_check_expr n e && red_check_block 0 t
     )
   )
 *)
@@ -601,7 +601,7 @@ let rec reduction_step_expr ctx e =
   )
   | Not (Const BoolFalse) -> (ctx, Const BoolTrue)
   | Not (Const BoolTrue) -> (ctx, Const BoolFalse)
-  | Not x -> 
+  | Not x ->
     if is_const x then (ctx, Not x)
     else (
       let (new_ctx, new_x) = reduction_step_expr ctx x in
@@ -722,8 +722,8 @@ let rec reduction_step_expr ctx e =
     | (true, true) -> (ctx, Multiply (l, r))
   )
   | Negotiate (Const (NumConst x)) -> (ctx, Const (NumConst (-x)))
-  | Negotiate x -> 
-    if is_const x then (ctx, Negotiate x) 
+  | Negotiate x ->
+    if is_const x then (ctx, Negotiate x)
     else (
       let (new_ctx, new_x) = reduction_step_expr ctx x in
       (new_ctx, Negotiate new_x)
@@ -790,7 +790,7 @@ let rec reduction_step_expr ctx e =
     )
   | MoveOutOfRef (Const (Ref (Known x))) -> (ctx, List.nth ctx.mem x |> fun (c, _) -> Const c)
   | MoveOutOfRef (Const (Ref (Stack x))) -> (ctx, List.nth ctx.stack (List.length ctx.stack - x - 1) |> fun (_, _, c) -> Const c)
-  | MoveOutOfRef x -> 
+  | MoveOutOfRef x ->
     if is_const x then (ctx, MoveOutOfRef x)
     else (
       let (new_ctx, new_x) = reduction_step_expr ctx x in
@@ -799,23 +799,23 @@ let rec reduction_step_expr ctx e =
 and reduction_step_block ctx b n =
   match b with
   | [] -> (pop_variables_off_master_context_stack ctx n, Const Nil)
-  | Expr e :: [] -> 
-    if is_const e then (pop_variables_off_master_context_stack ctx n, e) 
+  | Expr e :: [] ->
+    if is_const e then (pop_variables_off_master_context_stack ctx n, e)
     else (
       let (new_ctx, new_e) = reduction_step_expr ctx e in
       (new_ctx, Block ([Expr new_e], n))
     )
-  | Let (s, e) :: t -> 
+  | Let (s, e) :: t ->
     if is_const e then (
       let typ = infer_type_expr (downgrade_to_typing ctx) e in
-      (push_variable_to_master_context_stack ctx (s, typ, unwrap_const e), Block (Expr (Const Nil) :: t, n + 1)) 
+      (push_variable_to_master_context_stack ctx (s, typ, unwrap_const e), Block (Expr (Const Nil) :: t, n + 1))
     )
     else (
       let (new_ctx, new_e) = reduction_step_expr ctx e in
       (new_ctx, Block (Let (s, new_e) :: t, n))
     )
-  | Expr e :: t -> 
-    if is_const e then (ctx, Block (t, n)) 
+  | Expr e :: t ->
+    if is_const e then (ctx, Block (t, n))
     else (
       let (new_ctx, new_e) = reduction_step_expr ctx e in
       (new_ctx, Block (Expr new_e :: t, n))

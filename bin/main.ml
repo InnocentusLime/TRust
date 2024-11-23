@@ -20,7 +20,8 @@ let build_cmd_stream files =
           |> List.map Top.cmds_from_chan
           |> List.fold_left Seq.append Seq.empty
   in
-  Seq.append file_cmds Top.cmds_from_stdin
+  if !quit_on_done then file_cmds
+  else Seq.append file_cmds Top.cmds_from_stdin
 
 let () =
   Arg.parse speclist anon_fun usage_msg;

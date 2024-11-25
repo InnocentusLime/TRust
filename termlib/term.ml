@@ -26,10 +26,15 @@ type 'a ir_term =
 | App of 'a ir_term * 'a ir_term
 | Const of const
 
+type dbi = DeBruj of int
+
+type ast_term = string ir_term
+type db_ir_term = dbi ir_term
+
 (*                                   Util                                           *)
 (*==================================================================================*)
 
-let fold_term c_def c_var c_const c_app c_dep shift (ctx : 'ctx) (acc : 'acc) term =
+let fold_term c_def c_var c_const c_app c_dep shift ctx acc term =
   let rec go ctx acc term =
     match term with
     | Def v -> c_def ctx acc v
@@ -64,8 +69,6 @@ let fmap_term m_def m_var m_const shift (ctx : 'ctx) term =
 (*                                   AST term                                       *)
 (*==================================================================================*)
 
-type ast_term = string ir_term
-
 let stringify_const c =
   match c with
   | Kind k -> Printf.sprintf "Kind[%d]" k
@@ -93,10 +96,7 @@ let stringify_ast t =
 (*                                   De Brujin                                      *)
 (*==================================================================================*)
 
-type dbi = DeBruj of int
-type db_ir_term = dbi ir_term
-
-let stringify_de_bruj (t : db_ir_term) =
+let stringify_de_bruj t =
   fold_term
     (fun _ _ v -> v)
     (fun _ _ (DeBruj v) -> Printf.sprintf "REF[%d]" v)
@@ -108,7 +108,7 @@ let stringify_de_bruj (t : db_ir_term) =
     ""
     t
 
-let compile (nm : dbi StringMap.t) (term : ast_term) : db_ir_term =
+let compile nm term =
   let append_var nm s =
     nm |> StringMap.map (fun (DeBruj x) -> (DeBruj (x + 1)))
        |> StringMap.add s (DeBruj 0)
@@ -121,7 +121,7 @@ let compile (nm : dbi StringMap.t) (term : ast_term) : db_ir_term =
     nm
     term
 
-let decompile (nm : string IntegerMap.t) (term : db_ir_term) : ast_term =
+let decompile nm term =
   let append_var nm s =
     nm |> IntegerMap.to_list
        |> List.map (fun (idx, s) -> (idx + 1, s))

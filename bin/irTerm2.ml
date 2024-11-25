@@ -1,3 +1,5 @@
+open Util
+
 type const =
 | Kind of int
 | SmallType
@@ -18,7 +20,7 @@ type dep_ty =
 *)
 (* Special thanks to Komi Golov <3 *)
 type 'a ir_term =
-| Def of 'a
+| Def of string
 | Var of 'a
 | Dep of { dep:dep_ty; mark:string; ty:'a ir_term; bod:'a ir_term }
 | App of 'a ir_term * 'a ir_term
@@ -56,6 +58,7 @@ let fmap_term m_def m_var m_const shift (ctx : 'ctx) term =
     (fun _ dep mark ty bod -> Dep {dep; mark; ty; bod})
     shift
     ctx
+    (Const Prop)
     term
 
 (*                                   AST term                                       *)
@@ -75,7 +78,7 @@ let stringify_dep d mark ty bod =
   | Prod -> Printf.sprintf "(FOR %s:%s.%s)" mark ty bod
   | Refine -> Printf.sprintf "{%s:%s | %s}" mark ty bod
 
-let stringify t =
+let stringify_ast t =
   fold_term
     (fun _ _ v -> v)
     (fun _ _ v -> v)
@@ -87,15 +90,51 @@ let stringify t =
     ""
     t
 
-let compile = failwith "todo"
-
-let decompile = failwith "todo"
-
 (*                                   De Brujin                                      *)
 (*==================================================================================*)
 
 type dbi = DeBruj of int
 type db_ir_term = dbi ir_term
+
+let stringify_de_bruj (t : db_ir_term) =
+  fold_term
+    (fun _ _ v -> v)
+    (fun _ _ (DeBruj v) -> Printf.sprintf "REF[%d]" v)
+    (fun _ _ -> stringify_const)
+    (fun _ -> Printf.sprintf "(%s %s)")
+    (fun _ -> stringify_dep)
+    (fun _ _ _ _ -> ())
+    ()
+    ""
+    t
+
+let compile (nm : dbi StringMap.t) (term : ast_term) : db_ir_term =
+  let append_var nm s =
+    nm |> StringMap.map (fun (DeBruj x) -> (DeBruj (x + 1)))
+       |> StringMap.add s (DeBruj 0)
+  in
+  fmap_term
+    (fun _ v -> v)
+    (fun nm s -> StringMap.find s nm)
+    (fun _ c -> c)
+    (fun nm _ _ s -> append_var nm s)
+    nm
+    term
+
+let decompile (nm : string IntegerMap.t) (term : db_ir_term) : ast_term =
+  let append_var nm s =
+    nm |> IntegerMap.to_list
+       |> List.map (fun (idx, s) -> (idx + 1, s))
+       |> IntegerMap.of_list
+       |> IntegerMap.add 0 s
+  in
+  fmap_term
+    (fun _ v -> v)
+    (fun nm (DeBruj i) -> IntegerMap.find i nm)
+    (fun _ c -> c)
+    (fun nm _ _ s -> append_var nm s)
+    nm
+    term
 
 (* module type Variable =
   sig

@@ -1,4 +1,4 @@
 (test
  (name str2br)
- (modules str2br)
+ (modules str2br sampleTerms)
  (libraries termlib))

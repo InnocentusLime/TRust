@@ -9,6 +9,8 @@ let test = Dep {
 }
 
 let () =
-  Printf.printf "%s\n" (stringify_ast test);
-  Printf.printf "%s\n" (test |> compile StringMap.empty |> stringify_de_bruj);
-  Printf.printf "%s\n" (test |> compile StringMap.empty |> decompile IntegerMap.empty |> stringify_ast);
+  let orig = SampleTerms.samples in
+  let procc = orig |> List.map (compile StringMap.empty)
+                   |> List.map (decompile IntegerMap.empty)
+  in
+  assert (List.equal (fun x y -> x = y) orig procc)
